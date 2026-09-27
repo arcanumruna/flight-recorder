@@ -6,3 +6,6 @@
 #include "rune_fr/FrRecord.h"
 #include "rune_fr/Tsc.h"
 #include "rune_fr/Calibration.h"
+#include "rune_fr/Enable.h"
+#include "rune_fr/Recorder.h"
+#include "rune_fr/Event.h"

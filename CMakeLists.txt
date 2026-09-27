@@ -44,9 +44,19 @@ if(BUILD_TESTING)
         tests/RingTest.cpp
         tests/RegistryTest.cpp
         tests/EnableTest.cpp
+        tests/EventTest.cpp
     )
     target_link_libraries(rune_fr_tests PRIVATE rune_fr GTest::gtest_main)
     gtest_discover_tests(rune_fr_tests)
+
+    # Compile-out test: built with RUNE_FR=0 and linked ONLY against gtest
+    # (deliberately NOT rune_fr) so any accidental reference to a recorder
+    # symbol from the no-op Event.h fails to link and catches the regression.
+    add_executable(rune_fr_compileout_test tests/CompileOutTest.cpp)
+    target_include_directories(rune_fr_compileout_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_compile_definitions(rune_fr_compileout_test PRIVATE RUNE_FR=0)
+    target_link_libraries(rune_fr_compileout_test PRIVATE GTest::gtest_main)
+    gtest_discover_tests(rune_fr_compileout_test)
 endif()
 
 if(BUILD_BENCHMARKS)
