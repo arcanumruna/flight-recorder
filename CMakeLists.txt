@@ -39,6 +39,7 @@ if(BUILD_TESTING)
     include(GoogleTest)
     add_executable(rune_fr_tests
         tests/VersionTest.cpp
+        tests/CalibrationTest.cpp
     )
     target_link_libraries(rune_fr_tests PRIVATE rune_fr GTest::gtest_main)
     gtest_discover_tests(rune_fr_tests)
