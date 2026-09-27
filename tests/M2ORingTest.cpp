@@ -60,6 +60,18 @@ TEST(M2ORing, UndersizedCapacityClampsInsteadOfCrashing) {
     EXPECT_EQ(ring.drainInto(out), pushed);
 }
 
+TEST(M2ORing, NonPowerOfTwoCapacityRoundsUpInsteadOfThrowing) {
+    // A non-power-of-two payload >= 256 would make M2O's checkCapacity throw,
+    // and since it is constructed on the (noexcept) registration path that would
+    // std::terminate. FrRing must round any capacity up to a power of two.
+    for (std::size_t cap : {std::size_t{300}, std::size_t{1000}, std::size_t{1u << 20 | 1}}) {
+        FrRing ring(cap); // must not throw
+        EXPECT_TRUE(ring.push(FrRecord{1, 1, 1, 1, 0}));
+        std::vector<FrRecord> out;
+        EXPECT_EQ(ring.drainInto(out), 1u);
+    }
+}
+
 TEST(M2ORing, NoTornRecordUnderConcurrentDrain) {
     // Producer pushes self-consistent records (startTsc==endTsc,
     // corr==(uint32_t)startTsc) while a drainer reads concurrently. M2O framing

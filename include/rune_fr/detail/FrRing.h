@@ -4,6 +4,7 @@
 // fixed-size FrRecords via claim/commit; one drainer reads them back.
 // Drop-on-full: push() returns false when the ring is full (never blocks).
 
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -25,10 +26,12 @@ public:
     // rounds up to 256.
     static constexpr std::size_t kMinPayloadCapacity = 256;
 
-    // payloadCapacityPow2: usable payload bytes (must be a power of two). Values
-    // below kMinPayloadCapacity are clamped up so push() can never throw.
-    explicit FrRing(std::size_t payloadCapacityPow2)
-        : buf_(effectiveCapacity(payloadCapacityPow2) +
+    // Requested payload bytes. Any value is accepted: it is floored to
+    // kMinPayloadCapacity and rounded UP to a power of two, so the M2O capacity
+    // check never throws and push() (noexcept) can never terminate — no matter
+    // what Recorder::configure() is handed.
+    explicit FrRing(std::size_t requestedPayload)
+        : buf_(effectiveCapacity(requestedPayload) +
                    static_cast<std::size_t>(M2ORingBuffer::trailerLength()),
                0),
           ring_(buf_.data(), buf_.size()) {}
@@ -70,7 +73,9 @@ public:
 
 private:
     static std::size_t effectiveCapacity(std::size_t requested) noexcept {
-        return requested < kMinPayloadCapacity ? kMinPayloadCapacity : requested;
+        const std::size_t floored =
+            requested < kMinPayloadCapacity ? kMinPayloadCapacity : requested;
+        return std::bit_ceil(floored); // power of two >= floored (no-op if already pow2)
     }
 
     std::vector<std::uint8_t> buf_;

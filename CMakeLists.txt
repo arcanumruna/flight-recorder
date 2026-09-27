@@ -12,6 +12,15 @@ if(NOT RUNE_FR_VERSION_NUMERIC)
     set(RUNE_FR_VERSION_NUMERIC "0.0.0")
 endif()
 
+# Guard against Version.h drifting from VERSION.txt (the single source CMake/Conan
+# read): fail configure if the header's kVersion literal doesn't match.
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/include/rune_fr/Version.h" RUNE_FR_VERSION_HDR)
+if(NOT RUNE_FR_VERSION_HDR MATCHES "\"${RUNE_FR_VERSION}\"")
+    message(FATAL_ERROR
+        "rune_fr: include/rune_fr/Version.h kVersion is out of sync with VERSION.txt "
+        "(${RUNE_FR_VERSION}). Update Version.h to match.")
+endif()
+
 option(RUNE_FR "Enable rune-fr flight recording (compile-in)" ON)
 option(BUILD_TESTING "Build tests" OFF)
 option(BUILD_BENCHMARKS "Build benchmarks" OFF)
