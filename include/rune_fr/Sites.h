@@ -57,6 +57,10 @@ enum class Site : uint16_t {
     ReplPushToFollowers,  // leader pushToFollowers after append (GR-10)
     ReplPendingAckEnqueue,// acks=all: produce parked in pendingAcksAll_ (mark, corr)
     ReplPendingAckFire,   // acks=all: HW reached → ack fired (mark, corr)
+    ReplLeaderAppend,     // leader appended offset X (mark, (part<<24)|off)
+    ReplFollowerRecv,     // follower applyReplicated ENTRY: push covering X received
+    ReplHwAdvance,        // leader HW advanced to cover X (mark, (part<<24)|hw)
+    ReplAckSendOff,       // leader enqueued client ack for X (mark, (part<<24)|off)
 
     // --- consensus (Category::Consensus) ---
     ConsensusDoWork,      // NodeConsensusAgent duty cycle
@@ -122,6 +126,10 @@ inline constexpr SiteMeta kSiteMeta[] = {
     {"ReplPushToFollowers", Category::Replication},
     {"ReplPendingAckEnqueue", Category::Replication},
     {"ReplPendingAckFire", Category::Replication},
+    {"ReplLeaderAppend", Category::Replication},
+    {"ReplFollowerRecv", Category::Replication},
+    {"ReplHwAdvance", Category::Replication},
+    {"ReplAckSendOff", Category::Replication},
 
     // consensus
     {"ConsensusDoWork", Category::Consensus},
