@@ -46,6 +46,7 @@ if(BUILD_TESTING)
         tests/EnableTest.cpp
         tests/EventTest.cpp
         tests/HistogramTest.cpp
+        tests/ReportHistogramTest.cpp
     )
     target_link_libraries(rune_fr_tests PRIVATE rune_fr GTest::gtest_main)
     gtest_discover_tests(rune_fr_tests)
