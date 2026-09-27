@@ -40,6 +40,23 @@ Off the hot path, drain via `rune_fr::Recorder`:
 - `stitchByCorr(corr, out)` — per-request waterfall across threads.
 - `writeTape(path)` / `readTape(path)` — versioned raw dump.
 
+## Consuming rune-fr
+
+Add to your `conandata.yml`:
+```yaml
+requirements:
+  - "rune-fr/0.1.0-snapshot"
+```
+Then in CMake:
+```cmake
+find_package(rune_fr CONFIG REQUIRED)
+target_link_libraries(your_target PRIVATE rune_fr::rune_fr)
+```
+Toggle recording off at build time with `-o rune-fr/*:rune_fr=False` (compiles to nothing).
+
+A minimal end-to-end consumer lives in [`sample/`](sample/): it links `rune_fr::rune_fr`,
+records a few spans, prints histograms, and writes a Chrome trace.
+
 ## Overhead
 
 Measured with Google Benchmark, Release `-O3`, `--benchmark_min_time=1s`.

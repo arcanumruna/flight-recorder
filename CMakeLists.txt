@@ -74,6 +74,22 @@ if(BUILD_BENCHMARKS)
 endif()
 
 include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install(TARGETS rune_fr rune_fr_core EXPORT rune_frTargets)
 install(EXPORT rune_frTargets NAMESPACE rune_fr:: DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rune_fr)
+
+# Package config so `find_package(rune_fr CONFIG)` works for raw-CMake consumers.
+# (Conan consumers get their own generated config via package_info.)
+configure_package_config_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/rune_frConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/rune_frConfig.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rune_fr)
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/rune_frConfigVersion.cmake
+    VERSION ${RUNE_FR_VERSION}
+    COMPATIBILITY SameMajorVersion)
+install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/rune_frConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/rune_frConfigVersion.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rune_fr)

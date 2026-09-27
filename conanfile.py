@@ -9,7 +9,7 @@ class RuneFrConan(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
     options = {"shared": [True, False], "fPIC": [True, False], "rune_fr": [True, False]}
     default_options = {"shared": False, "fPIC": True, "rune_fr": True}
-    exports_sources = "src/*", "include/*", "CMakeLists.txt", "VERSION.txt"
+    exports_sources = "src/*", "include/*", "cmake/*", "CMakeLists.txt", "VERSION.txt"
 
     def set_version(self):
         version_file = os.path.join(os.path.dirname(__file__), "VERSION.txt")
