@@ -41,6 +41,7 @@ if(BUILD_TESTING)
         tests/VersionTest.cpp
         tests/CalibrationTest.cpp
         tests/SitesTest.cpp
+        tests/RingTest.cpp
     )
     target_link_libraries(rune_fr_tests PRIVATE rune_fr GTest::gtest_main)
     gtest_discover_tests(rune_fr_tests)
