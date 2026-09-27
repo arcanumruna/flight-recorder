@@ -38,6 +38,7 @@ enum class Site : uint16_t {
     WorkerProcessOp,      // worker dequeues + dispatches one WorkerOp
     ProduceAckEncode,     // encode ProduceResponse
     ProduceAckSend,       // sendRespReliable / enqueueOrBestEffort of the ack
+    WorkerIngressRecv,    // produce frame received + handled at the worker ingress
 
     // --- storage (Category::Storage) ---
     StorageFlush,         // fsync / flush / durability barrier
@@ -53,6 +54,9 @@ enum class Site : uint16_t {
     ReplSendFetchResp,    // sendFetchResponse encode + enqueueOutbound
     ReplOutboundDrain,    // drainOutbound (control thread offers to peers)
     ReplEnqueueOutbound,  // enqueueOutbound (worker → outbound ring)
+    ReplPushToFollowers,  // leader pushToFollowers after append (GR-10)
+    ReplPendingAckEnqueue,// acks=all: produce parked in pendingAcksAll_ (mark, corr)
+    ReplPendingAckFire,   // acks=all: HW reached → ack fired (mark, corr)
 
     // --- consensus (Category::Consensus) ---
     ConsensusDoWork,      // NodeConsensusAgent duty cycle
@@ -99,6 +103,7 @@ inline constexpr SiteMeta kSiteMeta[] = {
     {"WorkerProcessOp", Category::Produce},
     {"ProduceAckEncode", Category::Produce},
     {"ProduceAckSend", Category::Produce},
+    {"WorkerIngressRecv", Category::Produce},
 
     // storage
     {"StorageFlush", Category::Storage},
@@ -114,6 +119,9 @@ inline constexpr SiteMeta kSiteMeta[] = {
     {"ReplSendFetchResp", Category::Replication},
     {"ReplOutboundDrain", Category::Replication},
     {"ReplEnqueueOutbound", Category::Replication},
+    {"ReplPushToFollowers", Category::Replication},
+    {"ReplPendingAckEnqueue", Category::Replication},
+    {"ReplPendingAckFire", Category::Replication},
 
     // consensus
     {"ConsensusDoWork", Category::Consensus},
