@@ -36,11 +36,18 @@ ThreadRecorder* Recorder::registerThread() {
     calibrate();
     std::lock_guard<std::mutex> lk(mutex_);
     auto tr = std::make_unique<ThreadRecorder>(
-        defaultCapacity_, defaultMode_, currentOsTid(), std::string{});
+        defaultCapacity_, currentOsTid(), std::string{});
     ThreadRecorder* raw = tr.get();
     owned_.push_back(std::move(tr));
     threads_.push_back(raw);
     return raw;
+}
+
+void Recorder::drain() {
+    std::lock_guard<std::mutex> lk(mutex_);
+    for (auto& tr : owned_) {
+        tr->ring.drainInto(tr->drained);
+    }
 }
 
 void Recorder::reset() noexcept {

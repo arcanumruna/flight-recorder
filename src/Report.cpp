@@ -15,10 +15,9 @@ namespace rune_fr {
 
 std::vector<SiteStats> collectSiteStats() {
     std::array<Histogram, static_cast<size_t>(Site::Count)> hists;
-    std::vector<FrRecord> buf;
+    Recorder::instance().drain();
     for (auto* tr : Recorder::instance().snapshotThreads()) {
-        tr->ring.snapshot(buf);
-        for (const auto& r : buf) {
+        for (const auto& r : tr->drained) {
             if (r.site >= static_cast<uint16_t>(Site::Count)) continue;
             hists[r.site].record(
                 static_cast<uint64_t>(cyclesToNs(r.durationTsc()) + 0.5));
@@ -58,10 +57,9 @@ void dumpHistograms(std::ostream& out) {
 std::vector<WaterfallEntry> stitchByCorr(uint32_t corr) {
     std::vector<WaterfallEntry> entries;
     if (corr == 0) return entries; // 0 = "none"; never stitch the sentinel
-    std::vector<FrRecord> buf;
+    Recorder::instance().drain();
     for (auto* tr : Recorder::instance().snapshotThreads()) {
-        tr->ring.snapshot(buf);
-        for (const auto& r : buf) {
+        for (const auto& r : tr->drained) {
             if (r.corr != corr) continue;
             entries.push_back(WaterfallEntry{
                 static_cast<Site>(r.site), r.startTsc, r.durationTsc(),
@@ -98,20 +96,18 @@ bool exportChromeTrace(const std::string& path) {
     if (!out) return false;
 
     // Anchor the timeline at the earliest startTsc across all rings.
-    std::vector<FrRecord> buf;
+    Recorder::instance().drain();
     auto threads = Recorder::instance().snapshotThreads();
     uint64_t anchor = std::numeric_limits<uint64_t>::max();
     for (auto* tr : threads) {
-        tr->ring.snapshot(buf);
-        for (const auto& r : buf) anchor = std::min(anchor, r.startTsc);
+        for (const auto& r : tr->drained) anchor = std::min(anchor, r.startTsc);
     }
     if (anchor == std::numeric_limits<uint64_t>::max()) anchor = 0;
 
     out << "[";
     bool first = true;
     for (auto* tr : threads) {
-        tr->ring.snapshot(buf);
-        for (const auto& r : buf) {
+        for (const auto& r : tr->drained) {
             if (r.site >= static_cast<uint16_t>(Site::Count)) continue;
             double tsUs = cyclesToNs(r.startTsc - anchor) / 1000.0;
             double durUs = cyclesToNs(r.durationTsc()) / 1000.0;
@@ -170,18 +166,18 @@ bool writeTape(const std::string& path) {
     for (uint32_t i = 0; i < siteCount; ++i)
         putStr(out, nameOf(static_cast<Site>(i)));
 
+    Recorder::instance().drain();
     auto threads = Recorder::instance().snapshotThreads();
     uint32_t threadCount = static_cast<uint32_t>(threads.size());
     putPod(out, threadCount);
-    std::vector<FrRecord> buf;
     for (auto* tr : threads) {
         putPod(out, tr->osTid);
         putStr(out, tr->threadName);
-        tr->ring.snapshot(buf);
-        uint64_t recCount = buf.size();
+        const auto& recs = tr->drained;
+        uint64_t recCount = recs.size();
         putPod(out, recCount);
         if (recCount)
-            out.write(reinterpret_cast<const char*>(buf.data()),
+            out.write(reinterpret_cast<const char*>(recs.data()),
                       static_cast<std::streamsize>(recCount * sizeof(FrRecord)));
     }
     return static_cast<bool>(out);

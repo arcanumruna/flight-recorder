@@ -27,11 +27,11 @@ TEST(Throughput, MultiThreadNoInterferenceEachRingHoldsItsOwn) {
     }
     for (auto& t : ts) t.join();
 
+    Recorder::instance().drain();
     auto threads = Recorder::instance().snapshotThreads();
     EXPECT_EQ(threads.size(), static_cast<size_t>(kThreads));
-    std::vector<FrRecord> buf;
     for (auto* tr : threads) {
-        EXPECT_EQ(tr->ring.snapshot(buf), kUnderCap); // each thread kept exactly its own
+        EXPECT_EQ(tr->drained.size(), kUnderCap); // each thread kept exactly its own
     }
     disable();
 }

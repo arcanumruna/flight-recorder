@@ -6,10 +6,10 @@ using namespace rune_fr;
 
 namespace {
 size_t liveRecords() {
+    Recorder::instance().drain();
     size_t total = 0;
-    std::vector<FrRecord> tmp;
     for (auto* tr : Recorder::instance().snapshotThreads()) {
-        total += tr->ring.snapshot(tmp);
+        total += tr->drained.size();
     }
     return total;
 }
@@ -24,10 +24,11 @@ TEST(Event, BeginCommitProducesOneCorrectRecord) {
     ev.begin().corr(4242).arg(7);
     ev.commit();
 
+    Recorder::instance().drain();
     auto threads = Recorder::instance().snapshotThreads();
     ASSERT_EQ(threads.size(), 1u);
-    std::vector<FrRecord> out;
-    ASSERT_EQ(threads[0]->ring.snapshot(out), 1u);
+    const auto& out = threads[0]->drained;
+    ASSERT_EQ(out.size(), 1u);
     EXPECT_EQ(out[0].site, static_cast<uint16_t>(Site::WorkerAppend));
     EXPECT_EQ(out[0].corr, 4242u);
     EXPECT_EQ(out[0].arg, 7u);
@@ -72,10 +73,11 @@ TEST(Event, MarkRecordsInstantWithEqualStartEnd) {
     enable();
     setCategoryMask(0xFFFFFFFFu);
     RUNE_FR_MARK(Site::IngressRecv, 5);
+    Recorder::instance().drain();
     auto threads = Recorder::instance().snapshotThreads();
     ASSERT_EQ(threads.size(), 1u);
-    std::vector<FrRecord> out;
-    ASSERT_EQ(threads[0]->ring.snapshot(out), 1u);
+    const auto& out = threads[0]->drained;
+    ASSERT_EQ(out.size(), 1u);
     EXPECT_EQ(out[0].startTsc, out[0].endTsc);
     EXPECT_EQ(out[0].durationTsc(), 0u);
     disable();
