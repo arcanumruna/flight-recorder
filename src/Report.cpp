@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstring>
 #include <fstream>
 #include <iomanip>
 #include <limits>
@@ -129,8 +130,93 @@ bool exportChromeTrace(const std::string& path) {
     return static_cast<bool>(out);
 }
 
-// --- Temporary stub; replaced in Task 11 (tape). ---
-bool writeTape(const std::string&) { return false; }
-bool readTape(const std::string&, Tape&) { return false; }
+// Tape binary format (little-endian, documented assumption):
+//   magic "RUNEFR01" (8 bytes) | u32 version | f64 tscPerNs
+//   | u32 siteCount, then each site name as (u16 len + bytes)
+//   | u32 threadCount, then per thread:
+//       u64 osTid | u16 nameLen + bytes | u64 recordCount | recordCount * 24-byte FrRecord
+namespace {
+template <class T> void putPod(std::ostream& o, const T& v) {
+    o.write(reinterpret_cast<const char*>(&v), sizeof(T));
+}
+template <class T> bool getPod(std::istream& i, T& v) {
+    return static_cast<bool>(i.read(reinterpret_cast<char*>(&v), sizeof(T)));
+}
+void putStr(std::ostream& o, const std::string& s) {
+    uint16_t n = static_cast<uint16_t>(s.size());
+    putPod(o, n);
+    o.write(s.data(), n);
+}
+bool getStr(std::istream& i, std::string& s) {
+    uint16_t n = 0;
+    if (!getPod(i, n)) return false;
+    s.resize(n);
+    return n == 0 || static_cast<bool>(i.read(s.data(), n));
+}
+constexpr char kMagic[8] = {'R', 'U', 'N', 'E', 'F', 'R', '0', '1'};
+} // namespace
+
+bool writeTape(const std::string& path) {
+    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    if (!out) return false;
+    out.write(kMagic, 8);
+    uint32_t version = 1;
+    putPod(out, version);
+    double perNs = tscPerNs();
+    putPod(out, perNs);
+
+    uint32_t siteCount = static_cast<uint32_t>(Site::Count);
+    putPod(out, siteCount);
+    for (uint32_t i = 0; i < siteCount; ++i)
+        putStr(out, nameOf(static_cast<Site>(i)));
+
+    auto threads = Recorder::instance().snapshotThreads();
+    uint32_t threadCount = static_cast<uint32_t>(threads.size());
+    putPod(out, threadCount);
+    std::vector<FrRecord> buf;
+    for (auto* tr : threads) {
+        putPod(out, tr->osTid);
+        putStr(out, tr->threadName);
+        tr->ring.snapshot(buf);
+        uint64_t recCount = buf.size();
+        putPod(out, recCount);
+        if (recCount)
+            out.write(reinterpret_cast<const char*>(buf.data()),
+                      static_cast<std::streamsize>(recCount * sizeof(FrRecord)));
+    }
+    return static_cast<bool>(out);
+}
+
+bool readTape(const std::string& path, Tape& t) {
+    std::ifstream in(path, std::ios::binary);
+    if (!in) return false;
+    char magic[8];
+    if (!in.read(magic, 8) || std::memcmp(magic, kMagic, 8) != 0) return false;
+    if (!getPod(in, t.version) || t.version != 1) return false;
+    if (!getPod(in, t.tscPerNs)) return false;
+
+    uint32_t siteCount = 0;
+    if (!getPod(in, siteCount)) return false;
+    t.siteNames.resize(siteCount);
+    for (uint32_t i = 0; i < siteCount; ++i)
+        if (!getStr(in, t.siteNames[i])) return false;
+
+    uint32_t threadCount = 0;
+    if (!getPod(in, threadCount)) return false;
+    t.threads.resize(threadCount);
+    for (uint32_t i = 0; i < threadCount; ++i) {
+        TapeThread& th = t.threads[i];
+        if (!getPod(in, th.osTid)) return false;
+        if (!getStr(in, th.threadName)) return false;
+        uint64_t recCount = 0;
+        if (!getPod(in, recCount)) return false;
+        th.records.resize(recCount);
+        if (recCount &&
+            !in.read(reinterpret_cast<char*>(th.records.data()),
+                     static_cast<std::streamsize>(recCount * sizeof(FrRecord))))
+            return false;
+    }
+    return true;
+}
 
 } // namespace rune_fr

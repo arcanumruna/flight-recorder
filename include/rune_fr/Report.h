@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "rune_fr/Sites.h"
+#include "rune_fr/FrRecord.h"
 
 namespace rune_fr {
 
@@ -34,7 +35,19 @@ void printWaterfall(uint32_t corr, std::ostream& out);
 // --- Chrome trace + tape declared here; implemented in Tasks 10 & 11. ---
 bool exportChromeTrace(const std::string& path);
 
-struct Tape;          // defined in Task 11
+struct TapeThread {
+    uint64_t osTid;
+    std::string threadName;
+    std::vector<FrRecord> records;
+};
+
+struct Tape {
+    uint32_t version = 1;
+    double tscPerNs = 1.0;
+    std::vector<std::string> siteNames;
+    std::vector<TapeThread> threads;
+};
+
 bool writeTape(const std::string& path);
 bool readTape(const std::string& path, Tape& out);
 
