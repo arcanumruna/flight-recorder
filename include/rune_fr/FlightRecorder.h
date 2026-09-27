@@ -9,3 +9,4 @@
 #include "rune_fr/Enable.h"
 #include "rune_fr/Recorder.h"
 #include "rune_fr/Event.h"
+#include "rune_fr/Histogram.h"
