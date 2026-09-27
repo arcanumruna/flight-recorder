@@ -43,6 +43,7 @@ if(BUILD_TESTING)
         tests/SitesTest.cpp
         tests/RingTest.cpp
         tests/RegistryTest.cpp
+        tests/EnableTest.cpp
     )
     target_link_libraries(rune_fr_tests PRIVATE rune_fr GTest::gtest_main)
     gtest_discover_tests(rune_fr_tests)
