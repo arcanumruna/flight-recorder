@@ -18,9 +18,19 @@ class FrRing {
 public:
     static constexpr std::int32_t kMsgTypeId = 1; // FrRecord payload
 
-    // payloadCapacityPow2: usable payload bytes (must be a power of two).
+    // Smallest payload capacity for which the ring's maxMsgLength (= capacity/8)
+    // can still hold one FrRecord. Below this, tryClaim(1, sizeof(FrRecord))
+    // would throw — and since push() is noexcept that would std::terminate.
+    // Power of two so the M2O capacity check passes: 8 * sizeof(FrRecord) = 192
+    // rounds up to 256.
+    static constexpr std::size_t kMinPayloadCapacity = 256;
+
+    // payloadCapacityPow2: usable payload bytes (must be a power of two). Values
+    // below kMinPayloadCapacity are clamped up so push() can never throw.
     explicit FrRing(std::size_t payloadCapacityPow2)
-        : buf_(payloadCapacityPow2 + static_cast<std::size_t>(M2ORingBuffer::trailerLength()), 0),
+        : buf_(effectiveCapacity(payloadCapacityPow2) +
+                   static_cast<std::size_t>(M2ORingBuffer::trailerLength()),
+               0),
           ring_(buf_.data(), buf_.size()) {}
 
     FrRing(const FrRing&) = delete;
@@ -59,6 +69,10 @@ public:
     }
 
 private:
+    static std::size_t effectiveCapacity(std::size_t requested) noexcept {
+        return requested < kMinPayloadCapacity ? kMinPayloadCapacity : requested;
+    }
+
     std::vector<std::uint8_t> buf_;
     M2ORingBuffer ring_;
 };

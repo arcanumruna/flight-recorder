@@ -104,6 +104,11 @@ bool exportChromeTrace(const std::string& path) {
     }
     if (anchor == std::numeric_limits<uint64_t>::max()) anchor = 0;
 
+    // NOTE: JSON is hand-written without string escaping. This is safe ONLY
+    // because the sole string field emitted, nameOf(site), comes from the
+    // compile-time kSiteMeta table (controlled C identifiers — no quotes,
+    // backslashes, or control chars). If a runtime/user-supplied string is ever
+    // emitted here, add proper JSON escaping first.
     out << "[";
     bool first = true;
     for (auto* tr : threads) {

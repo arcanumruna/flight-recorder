@@ -53,7 +53,7 @@ RUNE_FR_SPAN(rune_fr::Site::WorkerAppend, correlationId);
 Off the hot path, drain via `rune_fr::Recorder`:
 - `dumpHistograms(out)` — per-site p50/p90/p99/p999/max/count/mean (ns).
 - `exportChromeTrace(path)` — open in `chrome://tracing`, Perfetto, or speedscope.
-- `stitchByCorr(corr, out)` — per-request waterfall across threads.
+- `stitchByCorr(corr)` → `vector<WaterfallEntry>` (or `printWaterfall(corr, out)`) — per-request waterfall across threads.
 - `writeTape(path)` / `readTape(path)` — versioned raw dump.
 
 ## Consuming rune-fr

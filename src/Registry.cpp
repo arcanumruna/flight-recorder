@@ -54,6 +54,10 @@ void Recorder::reset() noexcept {
     std::lock_guard<std::mutex> lk(mutex_);
     generation_.fetch_add(1, std::memory_order_release);
     threads_.clear();
+    // Retire (do not free) the rings: a producer may still hold a raw pointer
+    // into one and be mid-push. Moving them to retired_ keeps that memory valid
+    // until process exit; the retired ring is just never drained again.
+    for (auto& tr : owned_) retired_.push_back(std::move(tr));
     owned_.clear();
 }
 

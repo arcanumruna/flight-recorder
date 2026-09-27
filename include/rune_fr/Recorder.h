@@ -18,7 +18,10 @@ inline constexpr size_t kDefaultRingCapacity = 16u * 1024u * 1024u;
 
 struct ThreadRecorder {
     detail::FrRing ring;          // per-thread M2O ring (single producer)
-    std::vector<FrRecord> drained; // records pulled out by the one drainer
+    // Records pulled out by the one drainer. Cumulative "tape": grows across
+    // repeated report calls, cleared only by reset(). Rings are drop-on-full
+    // (bounded); this accumulator is the memory sink over a long run.
+    std::vector<FrRecord> drained;
     uint64_t osTid;
     std::string threadName;
 
@@ -48,11 +51,16 @@ public:
     // Idempotent when rings are empty; safe to call before each report.
     void drain();
 
-    // Bumped by reset() so stale thread-local pointers are invalidated.
+    // Bumped by reset() so the next threadRecorder() call re-registers.
     [[nodiscard]] uint64_t generation() const noexcept {
         return generation_.load(std::memory_order_acquire);
     }
 
+    // Test/quiescent-only. RETIRES each thread ring (moves it to a graveyard
+    // that lives until process exit) rather than freeing it, so a raw
+    // ThreadRecorder* a producer is concurrently pushing to stays valid memory
+    // (no use-after-free); the retired ring is simply never drained again.
+    // The next threadRecorder() call on each thread re-registers a fresh ring.
     void reset() noexcept;
 
 private:
@@ -61,6 +69,7 @@ private:
     mutable std::mutex mutex_;
     std::vector<ThreadRecorder*> threads_;
     std::vector<std::unique_ptr<ThreadRecorder>> owned_;
+    std::vector<std::unique_ptr<ThreadRecorder>> retired_; // kept alive after reset()
     size_t defaultCapacity_ = kDefaultRingCapacity;
     std::atomic<uint64_t> generation_{0};
 };

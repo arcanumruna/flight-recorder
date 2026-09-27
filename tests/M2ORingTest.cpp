@@ -45,6 +45,21 @@ TEST(M2ORing, DropsWhenFull) {
     EXPECT_EQ(ring.drainInto(out), pushed); // exactly what was accepted
 }
 
+TEST(M2ORing, UndersizedCapacityClampsInsteadOfCrashing) {
+    // A payload capacity below kMinPayloadCapacity would make maxMsgLength < 24,
+    // so tryClaim(1, sizeof(FrRecord)) would throw inside the noexcept push() and
+    // std::terminate. FrRing must clamp it up so push() only ever drops, never
+    // crashes.
+    FrRing ring(64); // clamped up to kMinPayloadCapacity
+    std::size_t pushed = 0;
+    for (uint64_t i = 0; i < 100; ++i) {
+        if (ring.push(FrRecord{i, i, static_cast<uint32_t>(i), 1, 0})) ++pushed;
+    }
+    EXPECT_GT(pushed, 0u); // at least one record fits (no crash, no throw)
+    std::vector<FrRecord> out;
+    EXPECT_EQ(ring.drainInto(out), pushed);
+}
+
 TEST(M2ORing, NoTornRecordUnderConcurrentDrain) {
     // Producer pushes self-consistent records (startTsc==endTsc,
     // corr==(uint32_t)startTsc) while a drainer reads concurrently. M2O framing

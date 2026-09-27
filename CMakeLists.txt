@@ -5,6 +5,12 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION.txt" RUNE_FR_VERSION)
+# Numeric x.y.z only (strip any -snapshot/-rc suffix) for CMake's version file,
+# which rejects non-numeric version components.
+string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" RUNE_FR_VERSION_NUMERIC "${RUNE_FR_VERSION}")
+if(NOT RUNE_FR_VERSION_NUMERIC)
+    set(RUNE_FR_VERSION_NUMERIC "0.0.0")
+endif()
 
 option(RUNE_FR "Enable rune-fr flight recording (compile-in)" ON)
 option(BUILD_TESTING "Build tests" OFF)
@@ -115,7 +121,7 @@ configure_package_config_file(
     INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rune_fr)
 write_basic_package_version_file(
     ${CMAKE_CURRENT_BINARY_DIR}/rune_frConfigVersion.cmake
-    VERSION ${RUNE_FR_VERSION}
+    VERSION ${RUNE_FR_VERSION_NUMERIC}
     COMPATIBILITY SameMajorVersion)
 install(FILES
     ${CMAKE_CURRENT_BINARY_DIR}/rune_frConfig.cmake
