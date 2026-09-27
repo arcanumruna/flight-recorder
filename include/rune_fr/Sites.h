@@ -67,6 +67,8 @@ enum class Site : uint16_t {
     // --- runtime (Category::Runtime) ---
     RuntimeDoWork,        // NodeRuntimeAgent duty cycle (one tick)
     MetadataDoWork,       // MetadataService::doWork
+    WorkerDoWork,         // WorkerPool worker duty cycle (one tick) — inter-tick gap
+                          // exposes scheduler handoff / park time on the worker thread
 
     // ... grows as more paths are instrumented ...
     Count
@@ -126,6 +128,7 @@ inline constexpr SiteMeta kSiteMeta[] = {
     // runtime
     {"RuntimeDoWork", Category::Runtime},
     {"MetadataDoWork", Category::Runtime},
+    {"WorkerDoWork", Category::Runtime},
 };
 
 static_assert(sizeof(kSiteMeta) / sizeof(kSiteMeta[0]) ==
