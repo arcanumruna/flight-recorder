@@ -47,8 +47,10 @@ if(BUILD_TESTING)
         tests/EventTest.cpp
         tests/HistogramTest.cpp
         tests/ReportHistogramTest.cpp
+        tests/ChromeTraceTest.cpp
     )
-    target_link_libraries(rune_fr_tests PRIVATE rune_fr GTest::gtest_main)
+    find_package(nlohmann_json REQUIRED)
+    target_link_libraries(rune_fr_tests PRIVATE rune_fr GTest::gtest_main nlohmann_json::nlohmann_json)
     gtest_discover_tests(rune_fr_tests)
 
     # Compile-out test: built with RUNE_FR=0 and linked ONLY against gtest

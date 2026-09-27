@@ -6,7 +6,9 @@
 
 #include <algorithm>
 #include <array>
+#include <fstream>
 #include <iomanip>
+#include <limits>
 
 namespace rune_fr {
 
@@ -90,8 +92,44 @@ void printWaterfall(uint32_t corr, std::ostream& out) {
     }
 }
 
-// --- Temporary stubs; replaced in Task 10 (exportChromeTrace) and Task 11 (tape). ---
-bool exportChromeTrace(const std::string&) { return false; }
+bool exportChromeTrace(const std::string& path) {
+    std::ofstream out(path, std::ios::trunc);
+    if (!out) return false;
+
+    // Anchor the timeline at the earliest startTsc across all rings.
+    std::vector<FrRecord> buf;
+    auto threads = Recorder::instance().snapshotThreads();
+    uint64_t anchor = std::numeric_limits<uint64_t>::max();
+    for (auto* tr : threads) {
+        tr->ring.snapshot(buf);
+        for (const auto& r : buf) anchor = std::min(anchor, r.startTsc);
+    }
+    if (anchor == std::numeric_limits<uint64_t>::max()) anchor = 0;
+
+    out << "[";
+    bool first = true;
+    for (auto* tr : threads) {
+        tr->ring.snapshot(buf);
+        for (const auto& r : buf) {
+            if (r.site >= static_cast<uint16_t>(Site::Count)) continue;
+            double tsUs = cyclesToNs(r.startTsc - anchor) / 1000.0;
+            double durUs = cyclesToNs(r.durationTsc()) / 1000.0;
+            if (!first) out << ",";
+            first = false;
+            out << "{\"ph\":\"X\",\"name\":\"" << nameOf(static_cast<Site>(r.site))
+                << "\",\"cat\":\""
+                << static_cast<int>(categoryOf(static_cast<Site>(r.site)))
+                << "\",\"pid\":1,\"tid\":" << tr->osTid
+                << ",\"ts\":" << std::fixed << std::setprecision(3) << tsUs
+                << ",\"dur\":" << durUs
+                << ",\"args\":{\"corr\":" << r.corr << ",\"arg\":" << r.arg << "}}";
+        }
+    }
+    out << "]";
+    return static_cast<bool>(out);
+}
+
+// --- Temporary stub; replaced in Task 11 (tape). ---
 bool writeTape(const std::string&) { return false; }
 bool readTape(const std::string&, Tape&) { return false; }
 
