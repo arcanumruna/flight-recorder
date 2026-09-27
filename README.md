@@ -42,4 +42,24 @@ Off the hot path, drain via `rune_fr::Recorder`:
 
 ## Overhead
 
-<!-- filled by Task 12 from bench numbers on the reference VM -->
+Measured with Google Benchmark, Release `-O3`, `--benchmark_min_time=1s`.
+
+Dev box (macOS, Apple Silicon arm64, `cntvct_el0` timestamp path):
+
+| case | ns/op |
+|------|-------|
+| enabled SPAN (`begin()`+`commit()`) | **2.91** |
+| enabled MARK (instant) | **2.94** |
+| runtime-disabled SPAN (compiled-in) | **0.66** |
+| compiled-out (`RUNE_FR=0`) | 0 |
+
+Both targets from the spec are met with wide margin: enabled ≤ 10 ns, disabled ≤ 1 ns.
+The x86_64 reference VM uses the `rdtscp` path (a single serializing counter read + one
+store on `commit()`); its numbers are expected to be in the same few-ns range and should be
+confirmed by CI on that VM. Reproduce:
+
+```bash
+cmake --preset conan-release -DBUILD_BENCHMARKS=ON
+cmake --build --preset conan-release --target rune_fr_bench
+./build/build/Release/rune_fr_bench --benchmark_min_time=1s
+```

@@ -49,6 +49,7 @@ if(BUILD_TESTING)
         tests/ReportHistogramTest.cpp
         tests/ChromeTraceTest.cpp
         tests/TapeTest.cpp
+        tests/ThroughputTest.cpp
     )
     find_package(nlohmann_json REQUIRED)
     target_link_libraries(rune_fr_tests PRIVATE rune_fr GTest::gtest_main nlohmann_json::nlohmann_json)
