@@ -63,8 +63,9 @@ enum class Site : uint16_t {
     ReplAckSendOff,       // leader enqueued client ack for X (mark, (part<<24)|off)
     ReplOutEnqueue,       // WORKER enqueues a repl frame to the outbound ring (corr)
     ReplOutDrain,         // CONTROL drains + offers that frame to Aeron (corr) — worker→control handoff
-    ReplFragRecv,         // CONTROL receives a repl fragment from a peer (corr) — post-transit
-    ReplRouteToWorker,    // CONTROL routes the inbound frame to the owning worker ring (corr)
+    ReplFragRecv,         // CONTROL enqueues a routed op to the worker ring (corr=recvSeq)
+    ReplRouteToWorker,    // (deprecated placeholder — kept for enum stability)
+    ReplWorkerOpRun,      // WORKER dequeues+runs the routed op (corr=runSeq); pairs 1:1 with ReplFragRecv (FIFO)
 
     // --- CLIENT (rune_produce_throughput) — corr = correlationId & 0xFFFFFFFF ---
     ClientDrvSubmit,      // driver: about to enter the window-wait for record i
@@ -148,6 +149,7 @@ inline constexpr SiteMeta kSiteMeta[] = {
     {"ReplOutDrain", Category::Replication},
     {"ReplFragRecv", Category::Replication},
     {"ReplRouteToWorker", Category::Replication},
+    {"ReplWorkerOpRun", Category::Replication},
     {"ClientDrvSubmit", Category::Produce},
     {"ClientDrvSend", Category::Produce},
     {"ClientDrvAckCb", Category::Produce},
