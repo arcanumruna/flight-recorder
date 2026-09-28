@@ -29,18 +29,22 @@
 #if RUNE_FR && !defined(RUNE_FR_NO_PRODUCE)
 #  define RUNE_FR_SPAN_PRODUCE(s, c) RUNE_FR_SPAN((s), (c))
 #  define RUNE_FR_MARK_PRODUCE(s, c) RUNE_FR_MARK((s), (c))
+#  define RUNE_FR_MARK_VAL_PRODUCE(s, c, v) RUNE_FR_MARK_VAL((s), (c), (v))
 #else
 #  define RUNE_FR_SPAN_PRODUCE(s, c) do {} while (0)
 #  define RUNE_FR_MARK_PRODUCE(s, c) do {} while (0)
+#  define RUNE_FR_MARK_VAL_PRODUCE(s, c, v) do {} while (0)
 #endif
 
 // ---- Replication -----------------------------------------------------------
 #if RUNE_FR && !defined(RUNE_FR_NO_REPLICATION)
 #  define RUNE_FR_SPAN_REPLICATION(s, c) RUNE_FR_SPAN((s), (c))
 #  define RUNE_FR_MARK_REPLICATION(s, c) RUNE_FR_MARK((s), (c))
+#  define RUNE_FR_MARK_VAL_REPLICATION(s, c, v) RUNE_FR_MARK_VAL((s), (c), (v))
 #else
 #  define RUNE_FR_SPAN_REPLICATION(s, c) do {} while (0)
 #  define RUNE_FR_MARK_REPLICATION(s, c) do {} while (0)
+#  define RUNE_FR_MARK_VAL_REPLICATION(s, c, v) do {} while (0)
 #endif
 
 // ---- Read ------------------------------------------------------------------

@@ -15,6 +15,8 @@ struct FrRecord {
     uint32_t corr;     // correlation id (0 = none)
     uint16_t site;     // Site
     uint16_t arg;      // small per-site payload; 0 if unused
+    double   value;    // free-form per-event custom value (0.0 if unused) — e.g.
+                       // measured latency µs, inFlight depth, batch bytes, rate.
 
     // Guard against end-before-start (clock skew / equal stamps): never underflow.
     [[nodiscard]] uint64_t durationTsc() const noexcept {
@@ -22,7 +24,7 @@ struct FrRecord {
     }
 };
 
-static_assert(sizeof(FrRecord) == 24, "FrRecord must be 24 bytes");
+static_assert(sizeof(FrRecord) == 32, "FrRecord must be 32 bytes");
 static_assert(alignof(FrRecord) == 8, "FrRecord must be 8-byte aligned");
 static_assert(std::endian::native == std::endian::little,
               "rune-fr assumes a little-endian target (matches Rune)");

@@ -61,6 +61,20 @@ enum class Site : uint16_t {
     ReplFollowerRecv,     // follower applyReplicated ENTRY: push covering X received
     ReplHwAdvance,        // leader HW advanced to cover X (mark, (part<<24)|hw)
     ReplAckSendOff,       // leader enqueued client ack for X (mark, (part<<24)|off)
+    ReplOutEnqueue,       // WORKER enqueues a repl frame to the outbound ring (corr)
+    ReplOutDrain,         // CONTROL drains + offers that frame to Aeron (corr) — worker→control handoff
+    ReplFragRecv,         // CONTROL receives a repl fragment from a peer (corr) — post-transit
+    ReplRouteToWorker,    // CONTROL routes the inbound frame to the owning worker ring (corr)
+
+    // --- CLIENT (rune_produce_throughput) — corr = correlationId & 0xFFFFFFFF ---
+    ClientDrvSubmit,      // driver: about to enter the window-wait for record i
+    ClientDrvSend,        // driver: window cleared → Producer::send() called (gap = window/ack starvation)
+    ClientDrvAckCb,       // driver: user ack callback fired for the record
+    ClientAppSend,        // app thread: record written to the app→agent ring (corr)
+    ClientAgentDrain,     // agent thread: record dequeued from the ring into a batch (corr)
+    ClientBatchOffer,     // agent thread: batch frame offered to the broker (corr=batch)
+    ClientAgentDoWork,    // agent thread: one duty cycle (inter-tick gap = agent park)
+    ClientAckComplete,    // agent thread: ProduceResponse matched → callback/promise fired (corr)
 
     // --- consensus (Category::Consensus) ---
     ConsensusDoWork,      // NodeConsensusAgent duty cycle
@@ -130,6 +144,18 @@ inline constexpr SiteMeta kSiteMeta[] = {
     {"ReplFollowerRecv", Category::Replication},
     {"ReplHwAdvance", Category::Replication},
     {"ReplAckSendOff", Category::Replication},
+    {"ReplOutEnqueue", Category::Replication},
+    {"ReplOutDrain", Category::Replication},
+    {"ReplFragRecv", Category::Replication},
+    {"ReplRouteToWorker", Category::Replication},
+    {"ClientDrvSubmit", Category::Produce},
+    {"ClientDrvSend", Category::Produce},
+    {"ClientDrvAckCb", Category::Produce},
+    {"ClientAppSend", Category::Produce},
+    {"ClientAgentDrain", Category::Produce},
+    {"ClientBatchOffer", Category::Produce},
+    {"ClientAgentDoWork", Category::Produce},
+    {"ClientAckComplete", Category::Produce},
 
     // consensus
     {"ConsensusDoWork", Category::Consensus},

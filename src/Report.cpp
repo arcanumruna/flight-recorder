@@ -124,7 +124,8 @@ bool exportChromeTrace(const std::string& path) {
                 << "\",\"pid\":1,\"tid\":" << tr->osTid
                 << ",\"ts\":" << std::fixed << std::setprecision(3) << tsUs
                 << ",\"dur\":" << durUs
-                << ",\"args\":{\"corr\":" << r.corr << ",\"arg\":" << r.arg << "}}";
+                << ",\"args\":{\"corr\":" << r.corr << ",\"arg\":" << r.arg
+                << ",\"value\":" << std::fixed << std::setprecision(3) << r.value << "}}";
         }
     }
     out << "]";
