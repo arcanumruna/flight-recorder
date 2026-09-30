@@ -107,6 +107,9 @@ enum class Site : uint16_t {
     WorkerReplPollDrive,      // doWork's call into the per-worker replication poll
     WorkerEgressPushStage,    // pushOwnedSubscriptions_ (consumer egress)
 
+    // --- self-contained worker shards (Category::Runtime) ---
+    ShardPass,                // ShardAgent::doWork — one full shard pass (driver+conductor+worker[+fused runtime])
+
     // ... grows as more paths are instrumented ...
     Count
 };
@@ -201,6 +204,9 @@ inline constexpr SiteMeta kSiteMeta[] = {
     {"WorkerReplicaDoWorkStage", Category::Runtime},
     {"WorkerReplPollDrive", Category::Runtime},
     {"WorkerEgressPushStage", Category::Runtime},
+
+    // self-contained worker shards
+    {"ShardPass", Category::Runtime},
 };
 
 static_assert(sizeof(kSiteMeta) / sizeof(kSiteMeta[0]) ==
