@@ -93,6 +93,20 @@ enum class Site : uint16_t {
     WorkerDoWork,         // WorkerPool worker duty cycle (one tick) — inter-tick gap
                           // exposes scheduler handoff / park time on the worker thread
 
+    // --- per-worker replication transport (Category::Replication) — #4 deep instrumentation ---
+    ReplWorkerFetchReqSend,   // follower: WorkerReplicationTransport::sendFetchRequest (broadcast)
+    ReplWorkerSend,           // leader: sendFetchResponse — build + encode into scratch
+    ReplWorkerSendOnPub,      // leader: sendOnPub_ — tryClaim/offer to a peer's Aeron pub
+    ReplWorkerBroadcast,      // broadcastToPeers loop (offer to every peer pub)
+    ReplWorkerPoll,           // WorkerReplicationTransport::poll — drain inbound sub (per doWork)
+    ReplWorkerDispatch,       // dispatchFrame_ — decode header + route + inline apply (per frame)
+
+    // --- worker doWork sub-stages (Category::Runtime) — where a doWork tick spends time ---
+    WorkerDrainIngress,       // drainIngress_ (produce ingress drain)
+    WorkerReplicaDoWorkStage, // owned-replica doWork loop (all owned replicas)
+    WorkerReplPollDrive,      // doWork's call into the per-worker replication poll
+    WorkerEgressPushStage,    // pushOwnedSubscriptions_ (consumer egress)
+
     // ... grows as more paths are instrumented ...
     Count
 };
@@ -173,6 +187,20 @@ inline constexpr SiteMeta kSiteMeta[] = {
     {"RuntimeDoWork", Category::Runtime},
     {"MetadataDoWork", Category::Runtime},
     {"WorkerDoWork", Category::Runtime},
+
+    // per-worker replication transport (#4 deep instrumentation)
+    {"ReplWorkerFetchReqSend", Category::Replication},
+    {"ReplWorkerSend", Category::Replication},
+    {"ReplWorkerSendOnPub", Category::Replication},
+    {"ReplWorkerBroadcast", Category::Replication},
+    {"ReplWorkerPoll", Category::Replication},
+    {"ReplWorkerDispatch", Category::Replication},
+
+    // worker doWork sub-stages
+    {"WorkerDrainIngress", Category::Runtime},
+    {"WorkerReplicaDoWorkStage", Category::Runtime},
+    {"WorkerReplPollDrive", Category::Runtime},
+    {"WorkerEgressPushStage", Category::Runtime},
 };
 
 static_assert(sizeof(kSiteMeta) / sizeof(kSiteMeta[0]) ==
