@@ -174,6 +174,39 @@ enum class Site : uint16_t {
     AeronConductorCmd,     // (reserved)
     AeronRecvDispatch,     // data packet dispatch (span, corr=(stream&0xFF)<<24|termOffset, value=len)
 
+    // --- produce hop chain + stall attribution (fr-hop-instrumentation) ---
+    // corr/arg/value conventions as above (C = foldCorr, K = partKey).
+    ShIngressFrame,        // Produce: shard direct ingress frame decoded, corr=C, arg=workerId, val=frame bytes
+    ShAppendCorr,          // Produce: frame appended (or answered), corr=C, arg=workerId, val=K(lastOffset) (-errorCode if refused)
+    ShGatewayRouted,       // Produce: gateway-routed produce reached its worker (op ring), corr=C, arg=workerId
+    ShIngressSkip,         // Runtime (throttled): client-ingress poll skipped, corr=workerId, arg=reason (1 FIFO, 2 ring, 3 budget)
+    ShOwedCapThrottle,     // Runtime (throttled): owed-return cap throttled intake, corr=workerId, arg=1 shard poll / 2 gateway-routed
+    ShOwedCapEpisode,      // Runtime: owed-cap episode edge, corr=workerId, arg=1 enter / 0 leave, val=throttle events
+    ShIntakePaused,        // Produce (throttled): frame ABORTed (its session holds acks), corr=(uint32)sessionId
+    ShAckHold,             // Produce: session ack-hold edge, corr=(uint32)sessionId, arg=1 held / 0 released
+    ShRetFifoPause,        // Runtime: return-FIFO high-water pause edge, corr=workerId, arg=1 enter / 0 leave, val=backlog
+    ShStageConductor,      // Runtime (slow span): shard pass — own client conductor invoke, corr=workerId
+    ShStageClientIngress,  // Runtime (slow span): shard pass — return FIFO flush + client ingress poll, corr=workerId
+    ShStageAckFire,        // Runtime (slow span): shard pass — acks=all waiter fire, corr=workerId
+    ShStageDisk,           // Runtime (slow span): shard pass — background disk work + io reap, corr=workerId
+    ShStageColdTail,       // Runtime (slow span): shard pass — egress push, cleaner drains, timed sync, signals
+    ShStageAckFlush,       // Runtime (slow span): shard pass — session ack claim flush, corr=workerId
+    ShStageRuntime,        // Runtime (slow span): fused runtime pass (worker 0), corr=workerId
+    StorageFsyncSubmit,    // Storage: io flush submitted, corr=token, arg=kind (1 durable, 2 background, 3 seal)
+    StorageFsyncDone,      // Storage: io flush completion reaped, corr=token, val=errorCode
+    StorageFsync,          // Storage: fdatasync syscall on the portable flusher thread (span), corr=fd
+    ClientBatchSeal,       // Produce: batch frame built for its first offer, corr=C, arg=records, val=ns since its first record
+    ClientOfferRefused,    // Produce (throttled): batch offer refused (kept, retried), corr=C, arg=partition
+    ClientTransportRefused,// Produce (throttled): client Aeron offer/claim refused, corr=streamId, arg=-position
+    ClientRetransmit,      // Produce: stored frame re-offered, corr=C, arg=reason (1 timer, 2 route, 3 parked, 4 redirect), val=attempts
+    ClientNotLeader,       // Produce: NotLeader answer, partition route-parked, corr=C, arg=partition
+    ClientOosPark,         // Produce: OutOfOrderSequence park, corr=C, arg=1 older-live / 2 resend / 3 lane-wait, val=parked
+    ClientLaneWait,        // Produce: lane wait entered, corr=C, arg=partition
+    ClientWindowFull,      // Produce (throttled): batch due but the in-flight window is full, corr=partition
+    ClientRetriable,       // Produce: retriable error answer (backoff), corr=C, arg=errorCode
+    GatewayOfferRefused,   // Produce (throttled): gateway egress offer refused, corr=streamId, arg=-position (0 = not connected)
+    ReplCtlOfferRefused,   // Replication (throttled): control-thread replication offer refused, corr=streamId, arg=-position
+
     // ... grows as more paths are instrumented ...
     Count
 };
@@ -324,6 +357,36 @@ inline constexpr SiteMeta kSiteMeta[] = {
     {"AeronPubClean", Category::Replication},
     {"AeronConductorCmd", Category::Replication},
     {"AeronRecvDispatch", Category::Replication},
+    {"ShIngressFrame", Category::Produce},
+    {"ShAppendCorr", Category::Produce},
+    {"ShGatewayRouted", Category::Produce},
+    {"ShIngressSkip", Category::Runtime},
+    {"ShOwedCapThrottle", Category::Runtime},
+    {"ShOwedCapEpisode", Category::Runtime},
+    {"ShIntakePaused", Category::Produce},
+    {"ShAckHold", Category::Produce},
+    {"ShRetFifoPause", Category::Runtime},
+    {"ShStageConductor", Category::Runtime},
+    {"ShStageClientIngress", Category::Runtime},
+    {"ShStageAckFire", Category::Runtime},
+    {"ShStageDisk", Category::Runtime},
+    {"ShStageColdTail", Category::Runtime},
+    {"ShStageAckFlush", Category::Runtime},
+    {"ShStageRuntime", Category::Runtime},
+    {"StorageFsyncSubmit", Category::Storage},
+    {"StorageFsyncDone", Category::Storage},
+    {"StorageFsync", Category::Storage},
+    {"ClientBatchSeal", Category::Produce},
+    {"ClientOfferRefused", Category::Produce},
+    {"ClientTransportRefused", Category::Produce},
+    {"ClientRetransmit", Category::Produce},
+    {"ClientNotLeader", Category::Produce},
+    {"ClientOosPark", Category::Produce},
+    {"ClientLaneWait", Category::Produce},
+    {"ClientWindowFull", Category::Produce},
+    {"ClientRetriable", Category::Produce},
+    {"GatewayOfferRefused", Category::Produce},
+    {"ReplCtlOfferRefused", Category::Replication},
 };
 
 static_assert(sizeof(kSiteMeta) / sizeof(kSiteMeta[0]) ==
