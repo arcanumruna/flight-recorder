@@ -51,4 +51,18 @@ struct Tape {
 bool writeTape(const std::string& path);
 bool readTape(const std::string& path, Tape& out);
 
+// Run metadata for cross-process alignment: the trace anchor (earliest recorded
+// TSC), the calibrated rate and ONE simultaneous (TSC, CLOCK_MONOTONIC,
+// CLOCK_REALTIME) sample.  Processes on one host share the invariant TSC: align
+// them by anchor DIFFERENCES converted with one rate, never by absolute TSC / a
+// per-process rate (a 1e-6 rate error x a 1e15 absolute TSC = seconds of skew).
+struct RunAnchor {
+    uint64_t anchorTsc = 0;   // earliest startTsc over all drained records (0 = none)
+    double   tscPerNs  = 1.0;
+    uint64_t syncTsc   = 0;
+    uint64_t syncMonoNs = 0;
+    uint64_t syncRealNs = 0;
+};
+RunAnchor runAnchor();
+
 } // namespace rune_fr

@@ -4,12 +4,20 @@
 #include "rune_fr/Calibration.h"
 #include "rune_fr/FrRecord.h"
 
+#include "rune_fr/Enable.h"
+#include "rune_fr/Tsc.h"
+
 #include <algorithm>
 #include <array>
+#include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <fstream>
 #include <iomanip>
 #include <limits>
+#include <sstream>
+
+#include <unistd.h>
 
 namespace rune_fr {
 
@@ -91,6 +99,43 @@ void printWaterfall(uint32_t corr, std::ostream& out) {
     }
 }
 
+namespace {
+uint64_t clockNs(clockid_t id) noexcept {
+    struct timespec ts;
+    clock_gettime(id, &ts);
+    return static_cast<uint64_t>(ts.tv_sec) * 1'000'000'000ull + static_cast<uint64_t>(ts.tv_nsec);
+}
+// Earliest startTsc over the drained records of `threads` (0 when empty).
+uint64_t earliestTsc(const std::vector<ThreadRecorder*>& threads) noexcept {
+    uint64_t anchor = std::numeric_limits<uint64_t>::max();
+    for (auto* tr : threads)
+        for (const auto& r : tr->drained) anchor = std::min(anchor, r.startTsc);
+    return anchor == std::numeric_limits<uint64_t>::max() ? 0 : anchor;
+}
+RunAnchor sampleAnchor(uint64_t anchorTsc) noexcept {
+    RunAnchor a;
+    a.anchorTsc = anchorTsc;
+    a.tscPerNs  = tscPerNs();
+    // Bracket the clock reads with two TSC reads; keep the midpoint.
+    const uint64_t t0 = rdtscp();
+    a.syncMonoNs = clockNs(CLOCK_MONOTONIC);
+    a.syncRealNs = clockNs(CLOCK_REALTIME);
+    const uint64_t t1 = rdtscp();
+    a.syncTsc = t0 + (t1 - t0) / 2;
+    return a;
+}
+std::string hostName() {
+    char buf[256] = {};
+    if (::gethostname(buf, sizeof(buf) - 1) != 0) return "unknown";
+    return buf;
+}
+} // namespace
+
+RunAnchor runAnchor() {
+    Recorder::instance().drain();
+    return sampleAnchor(earliestTsc(Recorder::instance().snapshotThreads()));
+}
+
 bool exportChromeTrace(const std::string& path) {
     std::ofstream out(path, std::ios::trunc);
     if (!out) return false;
@@ -98,27 +143,29 @@ bool exportChromeTrace(const std::string& path) {
     // Anchor the timeline at the earliest startTsc across all rings.
     Recorder::instance().drain();
     auto threads = Recorder::instance().snapshotThreads();
-    uint64_t anchor = std::numeric_limits<uint64_t>::max();
-    for (auto* tr : threads) {
-        for (const auto& r : tr->drained) anchor = std::min(anchor, r.startTsc);
-    }
-    if (anchor == std::numeric_limits<uint64_t>::max()) anchor = 0;
+    const RunAnchor a = sampleAnchor(earliestTsc(threads));
+    const uint64_t anchor = a.anchorTsc;
 
     // NOTE: JSON is hand-written without string escaping. This is safe ONLY
-    // because the sole string field emitted, nameOf(site), comes from the
-    // compile-time kSiteMeta table (controlled C identifiers — no quotes,
-    // backslashes, or control chars). If a runtime/user-supplied string is ever
-    // emitted here, add proper JSON escaping first.
+    // because the string fields emitted come from the compile-time kSiteMeta
+    // table (controlled C identifiers) and the host name (no quotes/backslashes
+    // on any sane host). If a runtime/user-supplied string is ever emitted
+    // here, add proper JSON escaping first.
     out << "[";
-    bool first = true;
+    // Anchor metadata so traces from several processes can be aligned (see
+    // RunAnchor): ts_us is relative to anchorTsc; align processes on one host by
+    // (anchorTsc_p - anchorTsc_ref) / tscPerNs_ref, never by absolute TSC.
+    out << "{\"ph\":\"M\",\"name\":\"rune_fr_anchor\",\"pid\":1,\"tid\":0,\"args\":{\"anchorTsc\":" << anchor
+        << ",\"tscPerNs\":" << std::setprecision(12) << a.tscPerNs
+        << ",\"syncTsc\":" << a.syncTsc << ",\"syncMonoNs\":" << a.syncMonoNs
+        << ",\"syncRealNs\":" << a.syncRealNs << ",\"pid\":" << static_cast<long>(::getpid())
+        << ",\"host\":\"" << hostName() << "\"}}";
     for (auto* tr : threads) {
         for (const auto& r : tr->drained) {
             if (r.site >= static_cast<uint16_t>(Site::Count)) continue;
             double tsUs = cyclesToNs(r.startTsc - anchor) / 1000.0;
             double durUs = cyclesToNs(r.durationTsc()) / 1000.0;
-            if (!first) out << ",";
-            first = false;
-            out << "{\"ph\":\"X\",\"name\":\"" << nameOf(static_cast<Site>(r.site))
+            out << ",{\"ph\":\"X\",\"name\":\"" << nameOf(static_cast<Site>(r.site))
                 << "\",\"cat\":\""
                 << static_cast<int>(categoryOf(static_cast<Site>(r.site)))
                 << "\",\"pid\":1,\"tid\":" << tr->osTid
@@ -136,7 +183,8 @@ bool exportChromeTrace(const std::string& path) {
 //   magic "RUNEFR01" (8 bytes) | u32 version | f64 tscPerNs
 //   | u32 siteCount, then each site name as (u16 len + bytes)
 //   | u32 threadCount, then per thread:
-//       u64 osTid | u16 nameLen + bytes | u64 recordCount | recordCount * 24-byte FrRecord
+//       u64 osTid | u16 nameLen + bytes | u64 recordCount | recordCount * sizeof(FrRecord)
+//       (32 bytes: u64 startTsc, u64 endTsc, u32 corr, u16 site, u16 arg, f64 value)
 namespace {
 template <class T> void putPod(std::ostream& o, const T& v) {
     o.write(reinterpret_cast<const char*>(&v), sizeof(T));

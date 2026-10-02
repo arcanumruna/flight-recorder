@@ -3,8 +3,8 @@
 #include "rune_fr/FrRecord.h"
 #include "rune_fr/Sites.h"
 
-TEST(FrRecord, IsTwentyFourBytes) {
-    EXPECT_EQ(sizeof(rune_fr::FrRecord), 24u);
+TEST(FrRecord, IsThirtyTwoBytes) {   // 24-byte v1 + the per-event double value (37e3856)
+    EXPECT_EQ(sizeof(rune_fr::FrRecord), 32u);
 }
 
 TEST(FrRecord, DurationNeverUnderflows) {
@@ -25,4 +25,13 @@ TEST(Sites, CategoryAndNameLookup) {
 TEST(Sites, MetaTableCoversEverySite) {
     EXPECT_EQ(sizeof(rune_fr::kSiteMeta) / sizeof(rune_fr::kSiteMeta[0]),
               static_cast<size_t>(rune_fr::Site::Count));
+}
+
+TEST(Sites, NamesAreUniqueAndNonEmpty) {
+    const size_t n = static_cast<size_t>(rune_fr::Site::Count);
+    for (size_t i = 0; i < n; ++i) {
+        ASSERT_NE(std::string(rune_fr::kSiteMeta[i].name), "");
+        for (size_t j = i + 1; j < n; ++j)
+            ASSERT_NE(std::string(rune_fr::kSiteMeta[i].name), std::string(rune_fr::kSiteMeta[j].name)) << i << " " << j;
+    }
 }
