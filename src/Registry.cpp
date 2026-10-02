@@ -74,3 +74,65 @@ ThreadRecorder* threadRecorder() noexcept {
 }
 
 } // namespace rune_fr
+
+
+// ---- C API (for the Aeron C driver hooks) — defined HERE, in an object that is
+// always linked, so the weak references from Aeron always resolve and no
+// consumer's build has to list an extra source file. ----
+#include "rune_fr/capi.h"
+#include "rune_fr/Event.h"
+
+#if RUNE_FR
+namespace {
+constexpr rune_fr::Site kMap[RUNE_FR_C_SITE_COUNT] = {
+    rune_fr::Site::AeronConductorDuty,
+    rune_fr::Site::AeronSenderDuty,
+    rune_fr::Site::AeronReceiverDuty,
+    rune_fr::Site::AeronSendData,
+    rune_fr::Site::AeronRecvInsert,
+    rune_fr::Site::AeronSmSent,
+    rune_fr::Site::AeronSmRecv,
+    rune_fr::Site::AeronSendSyscall,
+    rune_fr::Site::AeronRecvSyscall,
+    rune_fr::Site::AeronSenderDoSend,
+    rune_fr::Site::AeronSenderControlPoll,
+    rune_fr::Site::AeronPubSend,
+    rune_fr::Site::AeronSendBlocked,
+    rune_fr::Site::AeronHeartbeatSent,
+    rune_fr::Site::AeronSetupSent,
+    rune_fr::Site::AeronRetransmit,
+    rune_fr::Site::AeronNakRecv,
+    rune_fr::Site::AeronNakSent,
+    rune_fr::Site::AeronLossGap,
+    rune_fr::Site::AeronReceiverPoll,
+    rune_fr::Site::AeronImageClean,
+    rune_fr::Site::AeronPubClean,
+    rune_fr::Site::AeronConductorCmd,
+    rune_fr::Site::AeronRecvDispatch};
+inline bool mapSite(uint16_t c, rune_fr::Site& out) noexcept {
+    if (c >= RUNE_FR_C_SITE_COUNT) return false;
+    out = kMap[c];
+    return rune_fr::enabled(out);
+}
+} // namespace
+
+extern "C" uint64_t rune_fr_c_now(void) { return rune_fr::rdtscp(); }
+
+extern "C" void rune_fr_c_span(uint16_t c, uint32_t corr, uint64_t start, double value) {
+    rune_fr::Site s;
+    if (!mapSite(c, s) || start == 0) return;
+    rune_fr::threadRecorder()->ring.push(
+        rune_fr::FrRecord{start, rune_fr::rdtscp(), corr, static_cast<uint16_t>(s), 0, value});
+}
+
+extern "C" void rune_fr_c_mark(uint16_t c, uint32_t corr, double value) {
+    rune_fr::Site s;
+    if (!mapSite(c, s)) return;
+    const uint64_t t = rune_fr::rdtscp();
+    rune_fr::threadRecorder()->ring.push(rune_fr::FrRecord{t, t, corr, static_cast<uint16_t>(s), 0, value});
+}
+#else
+extern "C" uint64_t rune_fr_c_now(void) { return 0; }
+extern "C" void rune_fr_c_span(uint16_t, uint32_t, uint64_t, double) {}
+extern "C" void rune_fr_c_mark(uint16_t, uint32_t, double) {}
+#endif

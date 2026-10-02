@@ -110,6 +110,70 @@ enum class Site : uint16_t {
     // --- self-contained worker shards (Category::Runtime) ---
     ShardPass,                // ShardAgent::doWork — one full shard pass (driver+conductor+worker[+fused runtime])
 
+    // --- shard replication waterfall (Category::Replication) ---
+    // Keys (rune_fr/Keys.h): K = partKey(topic, partition, offset) =
+    //   ((topic+8)&0xF)<<28 | (partition&0xF)<<24 | offset&0xFFFFFF;
+    //   C = foldCorr(correlationId) (the client batch id, attempt-free).
+    // "(throttled)" sites go through rune_fr::Throttle: value = events coalesced.
+    ShAppendBase,          // leader: batch appended, corr=K(baseOffset), val=lastOffset
+    ShPushAttempt,         // leader: push to one follower attempted, corr=K(endOffset-1), val=follower
+    ShPushSent,            // leader: push accepted by transport, corr=K(endOffset-1), val=follower
+    ShPushRefused,         // leader (throttled): push refused, corr=K(fromOffset), arg=follower
+    ShPushWindowBlocked,   // leader (throttled): push skipped at the flow window, corr=K(pushFloor)
+    ShFetchRecv,           // leader: fetch/ack received, corr=K(fetchOffset), val=(follower<<1)|wantData
+    ShServeDecision,       // leader: serve decision, corr=K(fetchOffset), val=(follower<<2)|serve
+    ShAnswerSent,          // leader: fetch answer accepted, corr=K(fetchOffset), val=record bytes
+    ShAnswerRefused,       // leader (throttled): fetch answer refused, corr=K(fetchOffset), arg=follower
+    ShHwAdvanceFetch,      // leader: HW advanced, corr=K(hw-1), val=follower (-1 = leader recompute)
+    ShWaiterPark,          // leader worker: acks=all waiter parked, corr=C, val=K(lastOffset)
+    ShWaiterFire,          // leader worker: waiter fired, corr=C, val=errorCode
+    ShAckClaimed,          // leader worker: ProduceResponse claimed on the session pub, corr=C, val=baseOffset
+    ShAckClaimBlocked,     // leader worker (throttled): ack claim refused, corr=C, arg=-claim position
+    ShApplyEntry,          // follower: applyReplicated entry, corr=K(leoBefore), val=record bytes
+    ShApplyDone,           // follower: applied, corr=K(leoAfter-1), val=leoBefore
+    ShFastAckSent,         // follower: fast-ack sent, corr=K(leo), val=hw
+    ShFastAckRefused,      // follower (throttled): fast-ack refused, corr=K(leo)
+    ShFetchSent,           // follower: fetch emitted, corr=K(fetchOffset), val=wantData
+    ShFetchRefused,        // follower (throttled): fetch refused, corr=K(fetchOffset), arg=wantData
+    ShPlanePollFrags,      // worker: replication plane poll handled fragments, corr=workerId, val=fragments
+    ShPlanePubRefused,     // worker (throttled): plane pub offer/claim refused, corr=peer, arg=-position
+    ShDriverWork,          // shard (throttled): driver still busy after the per-pass duty cap, corr=workerId
+    ShPassIdle,            // (reserved)
+    ShIngressFrags,        // worker: client ingress poll handled frames, corr=workerId, val=frames
+
+    // --- storage write path, split (Category::Storage) ---
+    StoragePwrite,         // pwrite/pwritev syscall only (corr=bytes)
+    StorageRoll,           // Log::maybeRoll only
+    StorageIndex,          // offset-index append only
+
+    ShardDriverDuty,       // one invoker-driver duty cycle inside a shard pass (corr=index in pass)
+
+    // --- inside the Aeron C driver (via the C API, Category::Replication) ---
+    AeronConductorDuty,    // aeron conductor do_work (span)
+    AeronSenderDuty,       // aeron sender do_work (span)
+    AeronReceiverDuty,     // aeron receiver do_work (span)
+    AeronSendData,         // aeron data frame sent (mark corr=(stream&0xFF)<<24|termOffset, value=bytes)
+    AeronRecvInsert,       // aeron data inserted into image (mark, same corr, value=len)
+    AeronSmSent,           // aeron status message sent (mark corr=stream)
+    AeronSmRecv,           // aeron status message received at publication (mark corr=stream)
+    AeronSendSyscall,      // aeron sendmmsg/sendmsg syscall (span, corr=messages)
+    AeronRecvSyscall,
+    AeronSenderDoSend,     // sender do_send over all publications (span, value=bytes)
+    AeronSenderControlPoll, // (reserved)
+    AeronPubSend,          // one publication's send() (span, corr=stream, value=bytes)
+    AeronSendBlocked,      // (reserved)
+    AeronHeartbeatSent,    // heartbeat sent (mark corr=stream)
+    AeronSetupSent,        // (reserved)
+    AeronRetransmit,       // retransmit/resend (mark corr=stream, value=len)
+    AeronNakRecv,          // NAK received by publication (mark corr=stream, value=len)
+    AeronNakSent,          // NAK sent by image (mark corr=stream)
+    AeronLossGap,          // loss gap detected (mark corr=stream, value=len)
+    AeronReceiverPoll,     // receiver transport poller poll (span, value=datagrams)
+    AeronImageClean,       // image track_rebuild incl. term cleaning (span, corr=stream)
+    AeronPubClean,         // publication update_pub_lmt incl. cleaning (span, corr=stream)
+    AeronConductorCmd,     // (reserved)
+    AeronRecvDispatch,     // data packet dispatch (span, corr=(stream&0xFF)<<24|termOffset, value=len)
+
     // ... grows as more paths are instrumented ...
     Count
 };
@@ -207,6 +271,59 @@ inline constexpr SiteMeta kSiteMeta[] = {
 
     // self-contained worker shards
     {"ShardPass", Category::Runtime},
+    {"ShAppendBase", Category::Replication},
+    {"ShPushAttempt", Category::Replication},
+    {"ShPushSent", Category::Replication},
+    {"ShPushRefused", Category::Replication},
+    {"ShPushWindowBlocked", Category::Replication},
+    {"ShFetchRecv", Category::Replication},
+    {"ShServeDecision", Category::Replication},
+    {"ShAnswerSent", Category::Replication},
+    {"ShAnswerRefused", Category::Replication},
+    {"ShHwAdvanceFetch", Category::Replication},
+    {"ShWaiterPark", Category::Replication},
+    {"ShWaiterFire", Category::Replication},
+    {"ShAckClaimed", Category::Replication},
+    {"ShAckClaimBlocked", Category::Replication},
+    {"ShApplyEntry", Category::Replication},
+    {"ShApplyDone", Category::Replication},
+    {"ShFastAckSent", Category::Replication},
+    {"ShFastAckRefused", Category::Replication},
+    {"ShFetchSent", Category::Replication},
+    {"ShFetchRefused", Category::Replication},
+    {"ShPlanePollFrags", Category::Replication},
+    {"ShPlanePubRefused", Category::Replication},
+    {"ShDriverWork", Category::Replication},
+    {"ShPassIdle", Category::Replication},
+    {"ShIngressFrags", Category::Replication},
+    {"StoragePwrite", Category::Storage},
+    {"StorageRoll", Category::Storage},
+    {"StorageIndex", Category::Storage},
+    {"ShardDriverDuty", Category::Runtime},
+    {"AeronConductorDuty", Category::Replication},
+    {"AeronSenderDuty", Category::Replication},
+    {"AeronReceiverDuty", Category::Replication},
+    {"AeronSendData", Category::Replication},
+    {"AeronRecvInsert", Category::Replication},
+    {"AeronSmSent", Category::Replication},
+    {"AeronSmRecv", Category::Replication},
+    {"AeronSendSyscall", Category::Replication},
+    {"AeronRecvSyscall", Category::Replication},
+    {"AeronSenderDoSend", Category::Replication},
+    {"AeronSenderControlPoll", Category::Replication},
+    {"AeronPubSend", Category::Replication},
+    {"AeronSendBlocked", Category::Replication},
+    {"AeronHeartbeatSent", Category::Replication},
+    {"AeronSetupSent", Category::Replication},
+    {"AeronRetransmit", Category::Replication},
+    {"AeronNakRecv", Category::Replication},
+    {"AeronNakSent", Category::Replication},
+    {"AeronLossGap", Category::Replication},
+    {"AeronReceiverPoll", Category::Replication},
+    {"AeronImageClean", Category::Replication},
+    {"AeronPubClean", Category::Replication},
+    {"AeronConductorCmd", Category::Replication},
+    {"AeronRecvDispatch", Category::Replication},
 };
 
 static_assert(sizeof(kSiteMeta) / sizeof(kSiteMeta[0]) ==
