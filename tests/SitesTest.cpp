@@ -35,3 +35,16 @@ TEST(Sites, NamesAreUniqueAndNonEmpty) {
             ASSERT_NE(std::string(rune_fr::kSiteMeta[i].name), std::string(rune_fr::kSiteMeta[j].name)) << i << " " << j;
     }
 }
+
+TEST(Sites, HopSitesHaveTheirCategories) {   // the category selects the compile flag
+    using rune_fr::Category;
+    using rune_fr::Site;
+    EXPECT_EQ(rune_fr::categoryOf(Site::ShIngressFrame), Category::Produce);
+    EXPECT_EQ(rune_fr::categoryOf(Site::ShAppendCorr), Category::Produce);
+    EXPECT_EQ(rune_fr::categoryOf(Site::ShWaiterFire), Category::Replication);
+    EXPECT_EQ(rune_fr::categoryOf(Site::ShStageAckFlush), Category::Runtime);
+    EXPECT_EQ(rune_fr::categoryOf(Site::StorageFsync), Category::Storage);
+    EXPECT_EQ(rune_fr::categoryOf(Site::ClientRetransmit), Category::Produce);
+    EXPECT_EQ(std::string(rune_fr::nameOf(Site::ClientRetriable)), "ClientRetriable");
+    EXPECT_EQ(std::string(rune_fr::nameOf(Site::AeronRecvDispatch)), "AeronRecvDispatch");
+}

@@ -269,4 +269,79 @@ bool readTape(const std::string& path, Tape& t) {
     return true;
 }
 
+// ---------------------------------------------------------------------------
+// Process lifecycle helpers
+// ---------------------------------------------------------------------------
+namespace {
+uint64_t envU64(const char* name, uint64_t dflt) noexcept {
+    const char* v = std::getenv(name);
+    if (v == nullptr || *v == '\0') return dflt;
+    char* end = nullptr;
+    const unsigned long long n = std::strtoull(v, &end, 10);
+    return (end != nullptr && *end == '\0') ? static_cast<uint64_t>(n) : dflt;
+}
+uint32_t categoryMaskFromEnv() noexcept {
+    const char* v = std::getenv("RUNE_FR_CATEGORIES");
+    if (v == nullptr || *v == '\0') return 0xFFFFFFFFu;
+    static constexpr std::pair<const char*, Category> kNames[] = {
+        {"produce", Category::Produce}, {"replication", Category::Replication}, {"read", Category::Read},
+        {"consensus", Category::Consensus}, {"storage", Category::Storage}, {"egress", Category::Egress},
+        {"runtime", Category::Runtime}};
+    uint32_t mask = 0;
+    std::string list(v);
+    std::size_t pos = 0;
+    while (pos <= list.size()) {
+        const std::size_t comma = list.find(',', pos);
+        const std::string tok = list.substr(pos, comma == std::string::npos ? std::string::npos : comma - pos);
+        for (const auto& [n, c] : kNames)
+            if (tok == n) mask |= categoryBit(c);
+        if (comma == std::string::npos) break;
+        pos = comma + 1;
+    }
+    return mask == 0 ? 0xFFFFFFFFu : mask;
+}
+} // namespace
+
+bool configureFromEnv() {
+    Recorder::instance().configure(static_cast<size_t>(envU64("RUNE_FR_RING_BYTES", 128ull * 1024 * 1024)));
+    const char* en = std::getenv("RUNE_FR_ENABLE");
+    if (en == nullptr || *en == '\0' || std::strcmp(en, "0") == 0) return false;
+    calibrate();
+    setCategoryMask(categoryMaskFromEnv());
+    setSlowSpanTsc(nsToCycles(static_cast<double>(envU64("RUNE_FR_SLOW_SPAN_NS", 2000))));
+    setThrottleTsc(nsToCycles(static_cast<double>(envU64("RUNE_FR_THROTTLE_NS", 50000))));
+    enable();
+    const uint64_t drainMs = envU64("RUNE_FR_DRAIN_MS", 100);
+    if (drainMs > 0) startBackgroundDrain(static_cast<unsigned>(drainMs));
+    return true;
+}
+
+bool dumpAll(const std::string& dir, const std::string& suffix, const std::string& role,
+             const std::string& node) {
+    if (!isEnabled()) return false;
+    Recorder::instance().drain();
+    bool ok = true;
+    {
+        std::ofstream f(dir + "/fr-hist" + suffix + ".txt");
+        if (f) dumpHistograms(f); else ok = false;
+    }
+    ok = exportChromeTrace(dir + "/fr-trace" + suffix + ".json") && ok;
+    ok = writeTape(dir + "/fr-tape" + suffix + ".bin") && ok;
+    // The meta is written LAST, with the anchor of exactly what was dumped (the
+    // tape and the trace above share the earliest TSC: drained data only grows).
+    const RunAnchor a = runAnchor();
+    uint64_t records = 0;
+    for (auto* tr : Recorder::instance().snapshotThreads()) records += tr->drained.size();
+    std::ofstream m(dir + "/fr-meta" + suffix + ".json", std::ios::trunc);
+    if (!m) return false;
+    m << "{\"role\":\"" << role << "\",\"node\":\"" << node << "\",\"pid\":" << static_cast<long>(::getpid())
+      << ",\"host\":\"" << hostName() << "\",\"anchorTsc\":" << a.anchorTsc << ",\"tscPerNs\":"
+      << std::setprecision(12) << a.tscPerNs << ",\"syncTsc\":" << a.syncTsc << ",\"syncMonoNs\":" << a.syncMonoNs
+      << ",\"syncRealNs\":" << a.syncRealNs << ",\"records\":" << records << ",\"dropped\":" << droppedRecords()
+      << ",\"slowSpanNs\":" << static_cast<uint64_t>(cyclesToNs(slowSpanTsc()) + 0.5)
+      << ",\"throttleNs\":" << static_cast<uint64_t>(cyclesToNs(throttleTsc()) + 0.5)
+      << ",\"suffix\":\"" << suffix << "\"}\n";
+    return ok && static_cast<bool>(m);
+}
+
 } // namespace rune_fr

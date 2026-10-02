@@ -24,6 +24,10 @@ struct ThreadRecorder {
     std::vector<FrRecord> drained;
     uint64_t osTid;
     std::string threadName;
+    // Records the producer could not push (ring full): written only by the
+    // owning thread, only on a drop; read by the reporter.  A non-zero value
+    // means the trace of this thread has holes (reported in the run meta).
+    std::atomic<uint64_t> dropped{0};
 
     ThreadRecorder(size_t payloadCapacityPow2, uint64_t tid, std::string name)
         : ring(payloadCapacityPow2), osTid(tid), threadName(std::move(name)) {}
@@ -76,5 +80,20 @@ private:
 
 // TLS accessor: first call registers this thread (cold), then pure TLS load.
 ThreadRecorder* threadRecorder() noexcept;
+
+// Push one record into this thread's ring; a full ring drops it and counts the drop.
+inline void pushRecord(const FrRecord& r) noexcept {
+    ThreadRecorder* tr = threadRecorder();
+    if (!tr->ring.push(r)) [[unlikely]] tr->dropped.fetch_add(1, std::memory_order_relaxed);
+}
+
+// Total records dropped (ring full) over every registered thread.
+uint64_t droppedRecords();
+
+// Background drainer (cold, rune-fr-owned thread): pulls every thread ring into
+// its tape every `periodMs` so a long run never fills a ring (drop-on-full).
+// Idempotent; stopped automatically at exit.  stop joins the thread.
+void startBackgroundDrain(unsigned periodMs);
+void stopBackgroundDrain();
 
 } // namespace rune_fr

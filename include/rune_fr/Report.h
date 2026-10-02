@@ -51,6 +51,19 @@ struct Tape {
 bool writeTape(const std::string& path);
 bool readTape(const std::string& path, Tape& out);
 
+// ---- Process lifecycle helpers (cold; one call each from a binary's main) ----
+//
+// configureFromEnv(): size the per-thread rings and arm recording from the env,
+// BEFORE the threads that record are started.  Returns true iff recording is ON.
+//   RUNE_FR_ENABLE       set (and not "0")      → enable recording (default OFF)
+//   RUNE_FR_RING_BYTES   per-thread ring bytes  (default 128 MiB)
+//   RUNE_FR_CATEGORIES   comma list of produce,replication,read,consensus,storage,
+//                        egress,runtime (default: all)
+//   RUNE_FR_SLOW_SPAN_NS SlowSpan threshold     (default 2000 ns)
+//   RUNE_FR_THROTTLE_NS  Throttle min gap       (default 50000 ns)
+//   RUNE_FR_DRAIN_MS     background drain period (default 100 ms, 0 = off)
+bool configureFromEnv();
+
 // Run metadata for cross-process alignment: the trace anchor (earliest recorded
 // TSC), the calibrated rate and ONE simultaneous (TSC, CLOCK_MONOTONIC,
 // CLOCK_REALTIME) sample.  Processes on one host share the invariant TSC: align
@@ -64,5 +77,11 @@ struct RunAnchor {
     uint64_t syncRealNs = 0;
 };
 RunAnchor runAnchor();
+
+// Drain, then write <dir>/fr-hist<sfx>.txt, fr-trace<sfx>.json, fr-tape<sfx>.bin
+// and fr-meta<sfx>.json (role, node, pid, host, anchor, drops, config).  No-op
+// returning false when recording is off.  Off the hot path (exit / signal).
+bool dumpAll(const std::string& dir, const std::string& suffix, const std::string& role,
+             const std::string& node);
 
 } // namespace rune_fr

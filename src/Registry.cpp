@@ -1,6 +1,9 @@
 #include "rune_fr/Recorder.h"
 #include "rune_fr/Calibration.h"
 
+#include <atomic>
+#include <chrono>
+#include <cstdlib>
 #include <functional>
 #include <thread>
 
@@ -59,6 +62,47 @@ void Recorder::reset() noexcept {
     // until process exit; the retired ring is just never drained again.
     for (auto& tr : owned_) retired_.push_back(std::move(tr));
     owned_.clear();
+}
+
+uint64_t droppedRecords() {
+    uint64_t n = 0;
+    for (auto* tr : Recorder::instance().snapshotThreads()) n += tr->dropped.load(std::memory_order_relaxed);
+    return n;
+}
+
+// ---- background drainer (cold; owned by rune-fr) ----
+namespace {
+struct BackgroundDrain {
+    std::thread       thread;
+    std::atomic<bool> stop{false};
+};
+BackgroundDrain& backgroundDrain() {
+    static BackgroundDrain d;
+    return d;
+}
+} // namespace
+
+void startBackgroundDrain(unsigned periodMs) {
+    BackgroundDrain& d = backgroundDrain();
+    if (d.thread.joinable() || periodMs == 0) return;
+    d.stop.store(false, std::memory_order_relaxed);
+    d.thread = std::thread([periodMs, &d] {
+        while (!d.stop.load(std::memory_order_acquire)) {
+            Recorder::instance().drain();
+            std::this_thread::sleep_for(std::chrono::milliseconds(periodMs));
+        }
+    });
+    // Registered after the static above was constructed → runs before its
+    // destructor: the thread is never destroyed joinable.
+    static const bool registered = (std::atexit([] { stopBackgroundDrain(); }), true);
+    (void)registered;
+}
+
+void stopBackgroundDrain() {
+    BackgroundDrain& d = backgroundDrain();
+    if (!d.thread.joinable()) return;
+    d.stop.store(true, std::memory_order_release);
+    d.thread.join();
 }
 
 ThreadRecorder* threadRecorder() noexcept {
@@ -121,15 +165,14 @@ extern "C" uint64_t rune_fr_c_now(void) { return rune_fr::rdtscp(); }
 extern "C" void rune_fr_c_span(uint16_t c, uint32_t corr, uint64_t start, double value) {
     rune_fr::Site s;
     if (!mapSite(c, s) || start == 0) return;
-    rune_fr::threadRecorder()->ring.push(
-        rune_fr::FrRecord{start, rune_fr::rdtscp(), corr, static_cast<uint16_t>(s), 0, value});
+    rune_fr::pushRecord(rune_fr::FrRecord{start, rune_fr::rdtscp(), corr, static_cast<uint16_t>(s), 0, value});
 }
 
 extern "C" void rune_fr_c_mark(uint16_t c, uint32_t corr, double value) {
     rune_fr::Site s;
     if (!mapSite(c, s)) return;
     const uint64_t t = rune_fr::rdtscp();
-    rune_fr::threadRecorder()->ring.push(rune_fr::FrRecord{t, t, corr, static_cast<uint16_t>(s), 0, value});
+    rune_fr::pushRecord(rune_fr::FrRecord{t, t, corr, static_cast<uint16_t>(s), 0, value});
 }
 #else
 extern "C" uint64_t rune_fr_c_now(void) { return 0; }
