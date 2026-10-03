@@ -86,6 +86,9 @@ TEST(HopPrimitives, SlowSpanKeepsOnlySpansAboveTheThreshold) {
 
 TEST(HopPrimitives, ThrottleCoalescesARepeatingConditionAndCountsIt) {
     armAll();
+    // Register this thread (allocates its ring) BEFORE the timed burst: the first record's registration
+    // took ~63 ms on macOS, longer than the 50 ms window, and split the burst into two records.
+    (void)threadRecorder();
     setThrottleTsc(nsToCycles(50'000'000.0));   // 50 ms: everything below is one burst
     Throttle thr;
     for (int i = 0; i < 1000; ++i) thr.hit(Site::ShPushRefused, 7, 2);
@@ -199,12 +202,15 @@ TEST(HopPrimitives, ConfigureFromEnvIsOffUnlessEnabledAndAppliesThresholds) {
 TEST(HopPrimitives, CApiRecordsAeronSitesThroughTheSameRing) {
     armAll();
     const uint64_t t0 = rune_fr_c_now();
-    rune_fr_c_span(RUNE_FR_C_AERON_SENDER_DUTY, 1, t0, 2.0);
+    rune_fr_c_span(RUNE_FR_C_AERON_SEND_SYSCALL, 1, t0, 2.0);
     rune_fr_c_mark(RUNE_FR_C_AERON_NAK_RECV, 3, 4.0);
     rune_fr_c_mark(RUNE_FR_C_SITE_COUNT, 3, 4.0);   // out of range: ignored
+    // Per-duty-cycle sites are outside the default Aeron mask (they flood the ring every idle cycle).
+    rune_fr_c_span(RUNE_FR_C_AERON_SENDER_DUTY, 1, t0, 2.0);
+    rune_fr_c_span(RUNE_FR_C_AERON_RECV_SYSCALL, 1, t0, 2.0);
     auto r = drainedRecords();
     ASSERT_EQ(r.size(), 2u);
-    EXPECT_EQ(r[0].site, static_cast<uint16_t>(Site::AeronSenderDuty));
+    EXPECT_EQ(r[0].site, static_cast<uint16_t>(Site::AeronSendSyscall));
     EXPECT_EQ(r[1].site, static_cast<uint16_t>(Site::AeronNakRecv));
     disable();
 }
