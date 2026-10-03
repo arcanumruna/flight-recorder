@@ -46,10 +46,35 @@ ThreadRecorder* Recorder::registerThread() {
     return raw;
 }
 
+// Bounded tape: keep only the most recent N drained records per thread (a FLIGHT
+// recorder, not an archive).  Unbounded, a busy-spin thread's per-pass spans
+// (millions/s) grew the tape ~60 MB/s until the process was OOM-killed.
+// Histograms are accumulated at record time and stay complete regardless.
+// RUNE_FR_TAPE_RECORDS_PER_THREAD (default 2M records = 48 MiB per thread).
+static std::size_t tapeCapRecords() {
+    static const std::size_t cap = [] {
+        if (const char* e = std::getenv("RUNE_FR_TAPE_RECORDS_PER_THREAD")) {
+            const unsigned long long v = std::strtoull(e, nullptr, 10);
+            if (v > 0) return static_cast<std::size_t>(v);
+        }
+        return static_cast<std::size_t>(2u * 1024u * 1024u);
+    }();
+    return cap;
+}
+
 void Recorder::drain() {
     std::lock_guard<std::mutex> lk(mutex_);
+    const std::size_t cap = tapeCapRecords();
     for (auto& tr : owned_) {
         tr->ring.drainInto(tr->drained);
+        // Trim the OLDEST records once the tape exceeds cap by 25% (amortised:
+        // one bulk erase per ~cap/4 records, cold drainer thread only).
+        if (tr->drained.size() > cap + cap / 4) {
+            const std::size_t excess = tr->drained.size() - cap;
+            tr->drained.erase(tr->drained.begin(),
+                              tr->drained.begin() + static_cast<std::ptrdiff_t>(excess));
+            tr->tapeTrimmed += excess;
+        }
     }
 }
 
@@ -153,8 +178,23 @@ constexpr rune_fr::Site kMap[RUNE_FR_C_SITE_COUNT] = {
     rune_fr::Site::AeronPubClean,
     rune_fr::Site::AeronConductorCmd,
     rune_fr::Site::AeronRecvDispatch};
+// Per-C-site runtime mask (bit i = C site i).  The per-duty-cycle Aeron spans
+// (duty, recv syscall, do-send, control poll, pub send, receiver poll, image/pub
+// clean) fire on EVERY idle cycle and overflowed the per-thread rings (36% of
+// records dropped), hiding the hop events.  Default keeps the hop-explaining
+// sites; RUNE_FR_AERON_MASK=<hex> overrides (0xFFFFFF = everything).
+constexpr uint32_t kDefaultAeronMask =
+    (1u << 3) | (1u << 4) | (1u << 5) | (1u << 6) | (1u << 7) | (1u << 12) | (1u << 13) |
+    (1u << 14) | (1u << 15) | (1u << 16) | (1u << 17) | (1u << 18) | (1u << 22) | (1u << 23);
+inline uint32_t aeronMask() noexcept {
+    static const uint32_t m = [] {
+        if (const char* e = std::getenv("RUNE_FR_AERON_MASK")) return static_cast<uint32_t>(std::strtoul(e, nullptr, 0));
+        return kDefaultAeronMask;
+    }();
+    return m;
+}
 inline bool mapSite(uint16_t c, rune_fr::Site& out) noexcept {
-    if (c >= RUNE_FR_C_SITE_COUNT) return false;
+    if (c >= RUNE_FR_C_SITE_COUNT || ((aeronMask() >> c) & 1u) == 0) return false;
     out = kMap[c];
     return rune_fr::enabled(out);
 }

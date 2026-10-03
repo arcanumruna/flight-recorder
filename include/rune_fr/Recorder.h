@@ -22,6 +22,7 @@ struct ThreadRecorder {
     // repeated report calls, cleared only by reset(). Rings are drop-on-full
     // (bounded); this accumulator is the memory sink over a long run.
     std::vector<FrRecord> drained;
+    std::uint64_t tapeTrimmed = 0;   // oldest records trimmed from the bounded tape (drainer-owned)
     uint64_t osTid;
     std::string threadName;
     // Records the producer could not push (ring full): written only by the
