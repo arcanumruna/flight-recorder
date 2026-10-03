@@ -56,6 +56,23 @@ public:
     // Idempotent when rings are empty; safe to call before each report.
     void drain();
 
+    // Readers of the `drained` tapes.  Drains, then HOLDS the registry lock for
+    // the view's lifetime so the background drainer cannot append to / trim a
+    // tape while it is being walked (D1: exports raced the drainer -> segfault).
+    // Never call another locking Recorder method while holding a view.
+    class TapeView {
+    public:
+        TapeView(TapeView&&) noexcept = default;
+        [[nodiscard]] const std::vector<ThreadRecorder*>& threads() const noexcept { return *threads_; }
+    private:
+        friend class Recorder;
+        TapeView(std::unique_lock<std::mutex> lk, const std::vector<ThreadRecorder*>& t) noexcept
+            : lk_(std::move(lk)), threads_(&t) {}
+        std::unique_lock<std::mutex> lk_;
+        const std::vector<ThreadRecorder*>* threads_;
+    };
+    [[nodiscard]] TapeView drainAndView();
+
     // Bumped by reset() so the next threadRecorder() call re-registers.
     [[nodiscard]] uint64_t generation() const noexcept {
         return generation_.load(std::memory_order_acquire);
@@ -70,6 +87,7 @@ public:
 
 private:
     Recorder() = default;
+    void drainLocked_();   // mutex_ held
 
     mutable std::mutex mutex_;
     std::vector<ThreadRecorder*> threads_;

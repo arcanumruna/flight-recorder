@@ -64,6 +64,16 @@ static std::size_t tapeCapRecords() {
 
 void Recorder::drain() {
     std::lock_guard<std::mutex> lk(mutex_);
+    drainLocked_();
+}
+
+Recorder::TapeView Recorder::drainAndView() {
+    std::unique_lock<std::mutex> lk(mutex_);
+    drainLocked_();
+    return TapeView(std::move(lk), threads_);
+}
+
+void Recorder::drainLocked_() {
     const std::size_t cap = tapeCapRecords();
     for (auto& tr : owned_) {
         tr->ring.drainInto(tr->drained);

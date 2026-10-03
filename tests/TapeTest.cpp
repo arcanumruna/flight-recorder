@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 #include <fstream>
+#include <atomic>
 #include <cstdio>
+#include <thread>
 #include "rune_fr/FlightRecorder.h"
 
 using namespace rune_fr;
@@ -44,4 +46,33 @@ TEST(Tape, EmptyRingsWriteReadableTape) {
     ASSERT_TRUE(readTape(path, t));
     EXPECT_EQ(t.threads.size(), 0u);
     std::remove(path.c_str());
+}
+
+// D1 regression: every export used to call drain() and then walk each thread's `drained` tape WITHOUT the
+// registry lock, while the background drainer appended to / trimmed the same vectors (realloc / erase under
+// the reader) — the broker segfaulted exporting at shutdown.  Exports must read the tapes under the lock.
+// Deterministic under TSan (data race); under a plain build it crashes or reads garbage intermittently.
+TEST(TapeRegression, ExportWhileBackgroundDrainingIsRaceFree) {
+    Recorder::instance().reset();
+    calibrate();
+    std::atomic<bool> stop{false};
+    std::thread producer([&] {
+        uint64_t i = 0;
+        while (!stop.load(std::memory_order_relaxed)) {
+            threadRecorder()->ring.push(FrRecord{i, i + 10, static_cast<uint32_t>(i), static_cast<uint16_t>(Site::WorkerAppend), 0});
+            ++i;
+        }
+    });
+    startBackgroundDrain(1);
+    const std::string trace = "/tmp/rune_fr_race_trace.json", tape = "/tmp/rune_fr_race.tape";
+    for (int k = 0; k < 20; ++k) {
+        EXPECT_TRUE(exportChromeTrace(trace));
+        EXPECT_TRUE(writeTape(tape));
+    }
+    stopBackgroundDrain();
+    stop.store(true, std::memory_order_relaxed);
+    producer.join();
+    std::remove(trace.c_str());
+    std::remove(tape.c_str());
+    Recorder::instance().reset();
 }

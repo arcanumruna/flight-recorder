@@ -23,8 +23,8 @@ namespace rune_fr {
 
 std::vector<SiteStats> collectSiteStats() {
     std::array<Histogram, static_cast<size_t>(Site::Count)> hists;
-    Recorder::instance().drain();
-    for (auto* tr : Recorder::instance().snapshotThreads()) {
+    const auto view = Recorder::instance().drainAndView();
+    for (auto* tr : view.threads()) {
         for (const auto& r : tr->drained) {
             if (r.site >= static_cast<uint16_t>(Site::Count)) continue;
             hists[r.site].record(
@@ -65,8 +65,8 @@ void dumpHistograms(std::ostream& out) {
 std::vector<WaterfallEntry> stitchByCorr(uint32_t corr) {
     std::vector<WaterfallEntry> entries;
     if (corr == 0) return entries; // 0 = "none"; never stitch the sentinel
-    Recorder::instance().drain();
-    for (auto* tr : Recorder::instance().snapshotThreads()) {
+    const auto view = Recorder::instance().drainAndView();
+    for (auto* tr : view.threads()) {
         for (const auto& r : tr->drained) {
             if (r.corr != corr) continue;
             entries.push_back(WaterfallEntry{
@@ -132,8 +132,8 @@ std::string hostName() {
 } // namespace
 
 RunAnchor runAnchor() {
-    Recorder::instance().drain();
-    return sampleAnchor(earliestTsc(Recorder::instance().snapshotThreads()));
+    const auto view = Recorder::instance().drainAndView();
+    return sampleAnchor(earliestTsc(view.threads()));
 }
 
 bool exportChromeTrace(const std::string& path) {
@@ -141,8 +141,8 @@ bool exportChromeTrace(const std::string& path) {
     if (!out) return false;
 
     // Anchor the timeline at the earliest startTsc across all rings.
-    Recorder::instance().drain();
-    auto threads = Recorder::instance().snapshotThreads();
+    const auto view = Recorder::instance().drainAndView();   // tapes stay put while written
+    const auto& threads = view.threads();
     const RunAnchor a = sampleAnchor(earliestTsc(threads));
     const uint64_t anchor = a.anchorTsc;
 
@@ -220,8 +220,8 @@ bool writeTape(const std::string& path) {
     for (uint32_t i = 0; i < siteCount; ++i)
         putStr(out, nameOf(static_cast<Site>(i)));
 
-    Recorder::instance().drain();
-    auto threads = Recorder::instance().snapshotThreads();
+    const auto view = Recorder::instance().drainAndView();   // tapes stay put while written
+    const auto& threads = view.threads();
     uint32_t threadCount = static_cast<uint32_t>(threads.size());
     putPod(out, threadCount);
     for (auto* tr : threads) {
@@ -331,7 +331,10 @@ bool dumpAll(const std::string& dir, const std::string& suffix, const std::strin
     // tape and the trace above share the earliest TSC: drained data only grows).
     const RunAnchor a = runAnchor();
     uint64_t records = 0;
-    for (auto* tr : Recorder::instance().snapshotThreads()) records += tr->drained.size();
+    {
+        const auto view = Recorder::instance().drainAndView();
+        for (auto* tr : view.threads()) records += tr->drained.size();
+    }
     std::ofstream m(dir + "/fr-meta" + suffix + ".json", std::ios::trunc);
     if (!m) return false;
     m << "{\"role\":\"" << role << "\",\"node\":\"" << node << "\",\"pid\":" << static_cast<long>(::getpid())
