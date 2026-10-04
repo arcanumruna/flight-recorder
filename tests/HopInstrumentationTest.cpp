@@ -214,3 +214,16 @@ TEST(HopPrimitives, CApiRecordsAeronSitesThroughTheSameRing) {
     EXPECT_EQ(r[1].site, static_cast<uint16_t>(Site::AeronNakRecv));
     disable();
 }
+
+// A8 (perf regression): the Aeron C hooks call rune_fr_c_now() at every duty-cycle
+// span start.  While the recorder is disabled it must not read the TSC (rdtscp cost
+// ~3% of a shard worker and ~6% of the bench client at 20k rec/s, k3s-node-01): it
+// returns 0, and a span started at 0 records nothing.
+TEST(HopPrimitivesRegression, CApiNowIsZeroWhileDisabledRegression) {
+    armAll();
+    EXPECT_NE(rune_fr_c_now(), 0u);   // armed: a real timestamp
+    disable();
+    EXPECT_EQ(rune_fr_c_now(), 0u);
+    rune_fr_c_span(RUNE_FR_C_AERON_SEND_SYSCALL, 1, rune_fr_c_now(), 2.0);
+    EXPECT_EQ(drainedRecords().size(), 0u);
+}

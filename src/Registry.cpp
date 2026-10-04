@@ -210,7 +210,9 @@ inline bool mapSite(uint16_t c, rune_fr::Site& out) noexcept {
 }
 } // namespace
 
-extern "C" uint64_t rune_fr_c_now(void) { return rune_fr::rdtscp(); }
+// A8: 0 while the recorder is disabled — no rdtscp per Aeron duty-cycle hook (a span
+// started at 0 records nothing, see rune_fr_c_span).
+extern "C" uint64_t rune_fr_c_now(void) { return rune_fr::isEnabled() ? rune_fr::rdtscp() : 0; }
 
 extern "C" void rune_fr_c_span(uint16_t c, uint32_t corr, uint64_t start, double value) {
     rune_fr::Site s;
