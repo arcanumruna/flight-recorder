@@ -32,6 +32,11 @@ enum rune_fr_c_site {
     RUNE_FR_C_AERON_RECV_DISPATCH = 23,
     RUNE_FR_C_SITE_COUNT = 24
 };
+/* Start timestamp for rune_fr_c_span.  Returns 0 while the recorder is disabled
+ * (no TSC read on the hot path); a span whose start is 0 records nothing, so a
+ * span started while disabled and ended after enabling is dropped, never
+ * recorded with a bogus duration.  While enabled it reads the TSC even for a site
+ * masked off by RUNE_FR_AERON_MASK (now() takes no site; the end call filters). */
 uint64_t rune_fr_c_now(void);
 void     rune_fr_c_span(uint16_t c_site, uint32_t corr, uint64_t start_tsc, double value);
 void     rune_fr_c_mark(uint16_t c_site, uint32_t corr, double value);

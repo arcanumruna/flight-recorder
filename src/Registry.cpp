@@ -216,7 +216,7 @@ extern "C" uint64_t rune_fr_c_now(void) { return rune_fr::isEnabled() ? rune_fr:
 
 extern "C" void rune_fr_c_span(uint16_t c, uint32_t corr, uint64_t start, double value) {
     rune_fr::Site s;
-    if (!mapSite(c, s) || start == 0) return;
+    if (start == 0 || !mapSite(c, s)) return;   // FR-L: the free check first (a disabled-time start)
     rune_fr::pushRecord(rune_fr::FrRecord{start, rune_fr::rdtscp(), corr, static_cast<uint16_t>(s), 0, value});
 }
 

@@ -227,3 +227,17 @@ TEST(HopPrimitivesRegression, CApiNowIsZeroWhileDisabledRegression) {
     rune_fr_c_span(RUNE_FR_C_AERON_SEND_SYSCALL, 1, rune_fr_c_now(), 2.0);
     EXPECT_EQ(drainedRecords().size(), 0u);
 }
+
+// FR-L: a span STARTED while disabled (start 0) and ENDED after the recorder was
+// enabled records nothing — never a span from tick 0 to now.
+TEST(HopPrimitivesRegression, CApiSpanStartedWhileDisabledRecordsNothingRegression) {
+    armAll();
+    disable();
+    const uint64_t t0 = rune_fr_c_now();
+    EXPECT_EQ(t0, 0u);
+    armAll();                                    // enabled between start and end
+    rune_fr_c_span(RUNE_FR_C_AERON_SEND_SYSCALL, 1, t0, 2.0);
+    EXPECT_EQ(drainedRecords().size(), 0u) << "a disabled-time span was recorded";
+    rune_fr_c_span(RUNE_FR_C_AERON_SEND_SYSCALL, 1, rune_fr_c_now(), 2.0);   // control: an enabled span records
+    EXPECT_EQ(drainedRecords().size(), 1u);
+}
