@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 190" width="1200" height="190" role="img" aria-label="8.56 nanoseconds per enabled span, 0.66 nanoseconds when runtime-disabled, zero when compiled out, 32 bytes per recorded event">
+  <defs><linearGradient id="card" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#11111b"/><stop offset="1" stop-color="#06060a"/></linearGradient>
+  <linearGradient id="num" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#a855f7"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs>
+  <rect x=".5" y=".5" width="1199" height="189" rx="22" fill="url(#card)" stroke="#a885f7" stroke-opacity=".25"/>
+  <text x="34" y="84" font-family="'JetBrains Mono','SF Mono',Menlo,Consolas,monospace" font-size="40" font-weight="500" letter-spacing="-1" fill="url(#num)">8.56 ns</text>
+  <text x="34" y="122" font-family="'Space Grotesk','Segoe UI',Helvetica,Arial,sans-serif" font-size="18" fill="#edecf5">enabled span</text>
+  <text x="34" y="150" font-family="'JetBrains Mono','SF Mono',Menlo,Consolas,monospace" font-size="12" fill="#7a7a92">begin() + commit() · bench/</text>
+  <line x1="300" y1="1" x2="300" y2="189" stroke="#ffffff" stroke-opacity=".07"/>
+  <text x="334" y="84" font-family="'JetBrains Mono','SF Mono',Menlo,Consolas,monospace" font-size="40" font-weight="500" letter-spacing="-1" fill="url(#num)">0.66 ns</text>
+  <text x="334" y="122" font-family="'Space Grotesk','Segoe UI',Helvetica,Arial,sans-serif" font-size="18" fill="#edecf5">runtime-disabled span</text>
+  <text x="334" y="150" font-family="'JetBrains Mono','SF Mono',Menlo,Consolas,monospace" font-size="12" fill="#7a7a92">compiled in, switched off</text>
+  <line x1="600" y1="1" x2="600" y2="189" stroke="#ffffff" stroke-opacity=".07"/>
+  <text x="634" y="84" font-family="'JetBrains Mono','SF Mono',Menlo,Consolas,monospace" font-size="40" font-weight="500" letter-spacing="-1" fill="url(#num)">0</text>
+  <text x="634" y="122" font-family="'Space Grotesk','Segoe UI',Helvetica,Arial,sans-serif" font-size="18" fill="#edecf5">compiled out</text>
+  <text x="634" y="150" font-family="'JetBrains Mono','SF Mono',Menlo,Consolas,monospace" font-size="12" fill="#7a7a92">FLIGHT_RECORDER=0: no code</text>
+  <line x1="900" y1="1" x2="900" y2="189" stroke="#ffffff" stroke-opacity=".07"/>
+  <text x="934" y="84" font-family="'JetBrains Mono','SF Mono',Menlo,Consolas,monospace" font-size="40" font-weight="500" letter-spacing="-1" fill="url(#num)">32 B</text>
+  <text x="934" y="122" font-family="'Space Grotesk','Segoe UI',Helvetica,Arial,sans-serif" font-size="18" fill="#edecf5">per recorded event</text>
+  <text x="934" y="150" font-family="'JetBrains Mono','SF Mono',Menlo,Consolas,monospace" font-size="12" fill="#7a7a92">start, end, corr, site, arg, value</text>
+</svg>
