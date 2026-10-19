@@ -3,7 +3,7 @@
 **Status:** Approved for implementation (write-plan + build in a separate session).
 **Date:** 2026-09-27
 **Owner:** rune
-**Sibling of:** `rune-broker`, `rune-client-cpp`, `rune-protocol`, `common` (all under `/Users/vradu/Projects/`).
+**Sibling of:** `rune-broker`, `rune-client-cpp`, `rune-protocol`, `common` (all under `~/Projects/`).
 
 ---
 
@@ -160,7 +160,7 @@ Drainer runs on demand (signal handler, keypress, RPC, or benchmark teardown). I
 
 ## 5. Build & packaging
 
-- **Repo:** `/Users/vradu/Projects/flight-recorder` (new). `git init`; origin under `bitbucket.org:jcodeteam/flight-recorder.git` (match sibling naming; user creates the remote).
+- **Repo:** `~/Projects/flight-recorder` (new). `git init`; origin at `github.com:arcanumruna/flight-recorder.git` (match sibling naming; user creates the remote).
 - **Language/std:** C++23, little-endian assumption documented (matches Rune). Header-first with a small `.cpp` for the recorder/registry/calibration.
 - **CMake:** target `flight_recorder` (INTERFACE or STATIC). Option `FLIGHT_RECORDER` (default ON). Must **configure on both macOS (CLion) and Linux** — no hard x86 requirement at configure time; the ARM/TSC-fallback path keeps macOS builds green (mirror the aeron-recipe portability lesson: never break `cmake` configure on macOS/armv8).
 - **Conan:** provide a `conanfile.py` so `rune-broker` / `rune-client-cpp` consume it as a normal dependency. The implementing agent writes the recipe but does **not** run `conan create/export/upload` — the user's CI builds/publishes.

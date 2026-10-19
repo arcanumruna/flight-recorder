@@ -98,7 +98,7 @@ Created files and their single responsibilities:
 - [ ] **Step 1: `git init` and create version + ignore files**
 
 ```bash
-cd /Users/vradu/Projects/flight-recorder && git init
+cd ~/Projects/flight-recorder && git init
 ```
 
 `VERSION.txt`:
