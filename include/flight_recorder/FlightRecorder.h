@@ -1,0 +1,15 @@
+#pragma once
+
+#include "flight_recorder/Config.h"
+#include "flight_recorder/Version.h"
+#include "flight_recorder/Sites.h"
+#include "flight_recorder/Keys.h"
+#include "flight_recorder/FrRecord.h"
+#include "flight_recorder/Tsc.h"
+#include "flight_recorder/Calibration.h"
+#include "flight_recorder/Enable.h"
+#include "flight_recorder/Recorder.h"
+#include "flight_recorder/Event.h"
+#include "flight_recorder/Categories.h"
+#include "flight_recorder/Histogram.h"
+#include "flight_recorder/Report.h"

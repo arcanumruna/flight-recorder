@@ -3,9 +3,9 @@
 #include <atomic>
 #include <cstdio>
 #include <thread>
-#include "rune_fr/FlightRecorder.h"
+#include "flight_recorder/FlightRecorder.h"
 
-using namespace rune_fr;
+using namespace flight_recorder;
 
 TEST(Tape, RoundTripPreservesRecords) {
     Recorder::instance().reset();
@@ -13,7 +13,7 @@ TEST(Tape, RoundTripPreservesRecords) {
     threadRecorder()->ring.push(FrRecord{100, 250, 7, static_cast<uint16_t>(Site::WorkerAppend), 3});
     threadRecorder()->ring.push(FrRecord{300, 400, 8, static_cast<uint16_t>(Site::EgressSend), 0});
 
-    const std::string path = "/tmp/rune_fr_test.tape";
+    const std::string path = "/tmp/flight_recorder_test.tape";
     ASSERT_TRUE(writeTape(path));
 
     Tape t;
@@ -31,7 +31,7 @@ TEST(Tape, RoundTripPreservesRecords) {
 }
 
 TEST(Tape, RejectsBadMagic) {
-    const std::string path = "/tmp/rune_fr_bad.tape";
+    const std::string path = "/tmp/flight_recorder_bad.tape";
     { std::ofstream out(path); out << "NOTATAPE"; }
     Tape t;
     EXPECT_FALSE(readTape(path, t));
@@ -40,7 +40,7 @@ TEST(Tape, RejectsBadMagic) {
 
 TEST(Tape, EmptyRingsWriteReadableTape) {
     Recorder::instance().reset();
-    const std::string path = "/tmp/rune_fr_empty.tape";
+    const std::string path = "/tmp/flight_recorder_empty.tape";
     ASSERT_TRUE(writeTape(path));
     Tape t;
     ASSERT_TRUE(readTape(path, t));
@@ -64,7 +64,7 @@ TEST(TapeRegression, ExportWhileBackgroundDrainingIsRaceFree) {
         }
     });
     startBackgroundDrain(1);
-    const std::string trace = "/tmp/rune_fr_race_trace.json", tape = "/tmp/rune_fr_race.tape";
+    const std::string trace = "/tmp/flight_recorder_race_trace.json", tape = "/tmp/flight_recorder_race.tape";
     for (int k = 0; k < 20; ++k) {
         EXPECT_TRUE(exportChromeTrace(trace));
         EXPECT_TRUE(writeTape(tape));

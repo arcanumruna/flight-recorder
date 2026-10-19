@@ -1,10 +1,10 @@
-#include "rune_fr/Calibration.h"
-#include "rune_fr/Tsc.h"
+#include "flight_recorder/Calibration.h"
+#include "flight_recorder/Tsc.h"
 
 #include <atomic>
 #include <ctime>
 
-namespace rune_fr {
+namespace flight_recorder {
 namespace {
 std::atomic<double> g_tscPerNs{1.0};
 std::atomic<bool>   g_calibrated{false};
@@ -21,10 +21,10 @@ void calibrate() noexcept {
     bool expected = false;
     if (!g_calibrated.compare_exchange_strong(expected, true)) return;
 
-#if defined(RUNE_FR_FALLBACK)
+#if defined(FLIGHT_RECORDER_FALLBACK)
     g_tscPerNs.store(1.0, std::memory_order_relaxed); // rdtscp() already returns ns
     return;
-#elif defined(RUNE_FR_ARM)
+#elif defined(FLIGHT_RECORDER_ARM)
     uint64_t f = counterFrequencyHz();
     g_tscPerNs.store(f > 0 ? static_cast<double>(f) / 1e9 : 1.0,
                      std::memory_order_relaxed);
@@ -51,4 +51,4 @@ double tscPerNs() noexcept {
     return g_tscPerNs.load(std::memory_order_relaxed);
 }
 
-} // namespace rune_fr
+} // namespace flight_recorder

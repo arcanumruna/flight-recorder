@@ -1,22 +1,22 @@
 #include <iostream>
-#include "rune_fr/FlightRecorder.h"
+#include "flight_recorder/FlightRecorder.h"
 
 int main() {
-    using namespace rune_fr;
+    using namespace flight_recorder;
     calibrate();
     enable();
     setCategoryMask(0xFFFFFFFFu);
 
     for (int i = 0; i < 5; ++i) {
-        RUNE_FR_SPAN(Site::WorkerAppend, static_cast<uint32_t>(i + 1));
+        FLIGHT_RECORDER_SPAN(Site::WorkerAppend, static_cast<uint32_t>(i + 1));
     }
-    RUNE_FR_MARK(Site::IngressRecv, 42);
+    FLIGHT_RECORDER_MARK(Site::IngressRecv, 42);
 
     dumpHistograms(std::cout);
-    if (!exportChromeTrace("/tmp/rune_fr_sample_trace.json")) {
+    if (!exportChromeTrace("/tmp/flight_recorder_sample_trace.json")) {
         std::cerr << "trace export failed\n";
         return 1;
     }
-    std::cout << "wrote /tmp/rune_fr_sample_trace.json\n";
+    std::cout << "wrote /tmp/flight_recorder_sample_trace.json\n";
     return 0;
 }

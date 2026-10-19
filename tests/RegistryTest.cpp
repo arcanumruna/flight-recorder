@@ -2,9 +2,9 @@
 #include <thread>
 #include <vector>
 #include <set>
-#include "rune_fr/Recorder.h"
+#include "flight_recorder/Recorder.h"
 
-using namespace rune_fr;
+using namespace flight_recorder;
 
 TEST(Registry, SameThreadReturnsSameRecorder) {
     Recorder::instance().reset();

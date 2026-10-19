@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 #include <vector>
-#include "rune_fr/FlightRecorder.h"
+#include "flight_recorder/FlightRecorder.h"
 
-using namespace rune_fr;
+using namespace flight_recorder;
 
 namespace {
 size_t liveRecords() {
@@ -61,7 +61,7 @@ TEST(Event, ScopedSpanRecordsOnDestruction) {
     enable();
     setCategoryMask(0xFFFFFFFFu);
     {
-        RUNE_FR_SPAN(Site::EgressSend, 99);
+        FLIGHT_RECORDER_SPAN(Site::EgressSend, 99);
     }
     EXPECT_EQ(liveRecords(), 1u);
     disable();
@@ -72,7 +72,7 @@ TEST(Event, MarkRecordsInstantWithEqualStartEnd) {
     Recorder::instance().reset();
     enable();
     setCategoryMask(0xFFFFFFFFu);
-    RUNE_FR_MARK(Site::IngressRecv, 5);
+    FLIGHT_RECORDER_MARK(Site::IngressRecv, 5);
     Recorder::instance().drain();
     auto threads = Recorder::instance().snapshotThreads();
     ASSERT_EQ(threads.size(), 1u);

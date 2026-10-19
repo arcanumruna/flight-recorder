@@ -2,10 +2,10 @@
 #include <atomic>
 #include <thread>
 #include <vector>
-#include "rune_fr/detail/FrRing.h"
+#include "flight_recorder/detail/FrRing.h"
 
-using rune_fr::FrRecord;
-using rune_fr::detail::FrRing;
+using flight_recorder::FrRecord;
+using flight_recorder::detail::FrRing;
 
 TEST(M2ORing, PushDrainRoundTripPreservesOrderAndContent) {
     FrRing ring(4096);

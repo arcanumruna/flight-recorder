@@ -4,9 +4,9 @@
 // A namespace-isolated copy of Rune's agrona M2O ring (see
 // rune-client-cpp's rune::client::detail::M2ORingBuffer and common's
 // concurrent/agrona/M2ORingBuffer.h), retargeted onto Aeron's own
-// AtomicBuffer + RecordDescriptor (header-only) so rune-fr pulls in NO
+// AtomicBuffer + RecordDescriptor (header-only) so flight-recorder pulls in NO
 // external "common" library — only aeron headers. It lives ONLY inside
-// rune_fr::detail and is never exposed across rune-fr's public API.
+// flight_recorder::detail and is never exposed across flight-recorder's public API.
 //
 // Layout + wire format are byte-identical to Aeron's ManyToOneRingBuffer.
 //
@@ -26,7 +26,7 @@
 #include <util/Index.h>
 #include <util/Exceptions.h>
 
-namespace rune_fr::detail {
+namespace flight_recorder::detail {
 
 /// Consumer decision returned from a controlledRead() handler.
 enum class ControlledAction {
@@ -283,4 +283,4 @@ private:
     aeron::util::index_t m_consumerHeartbeatIndex    = 0;
 };
 
-} // namespace rune_fr::detail
+} // namespace flight_recorder::detail

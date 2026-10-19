@@ -5,10 +5,10 @@
 #include <string>
 #include <vector>
 
-#include "rune_fr/Sites.h"
-#include "rune_fr/FrRecord.h"
+#include "flight_recorder/Sites.h"
+#include "flight_recorder/FrRecord.h"
 
-namespace rune_fr {
+namespace flight_recorder {
 
 struct SiteStats {
     Site site;
@@ -55,13 +55,13 @@ bool readTape(const std::string& path, Tape& out);
 //
 // configureFromEnv(): size the per-thread rings and arm recording from the env,
 // BEFORE the threads that record are started.  Returns true iff recording is ON.
-//   RUNE_FR_ENABLE       set (and not "0")      → enable recording (default OFF)
-//   RUNE_FR_RING_BYTES   per-thread ring bytes  (default 128 MiB)
-//   RUNE_FR_CATEGORIES   comma list of produce,replication,read,consensus,storage,
+//   FLIGHT_RECORDER_ENABLE       set (and not "0")      → enable recording (default OFF)
+//   FLIGHT_RECORDER_RING_BYTES   per-thread ring bytes  (default 128 MiB)
+//   FLIGHT_RECORDER_CATEGORIES   comma list of produce,replication,read,consensus,storage,
 //                        egress,runtime (default: all)
-//   RUNE_FR_SLOW_SPAN_NS SlowSpan threshold     (default 2000 ns)
-//   RUNE_FR_THROTTLE_NS  Throttle min gap       (default 50000 ns)
-//   RUNE_FR_DRAIN_MS     background drain period (default 100 ms, 0 = off)
+//   FLIGHT_RECORDER_SLOW_SPAN_NS SlowSpan threshold     (default 2000 ns)
+//   FLIGHT_RECORDER_THROTTLE_NS  Throttle min gap       (default 50000 ns)
+//   FLIGHT_RECORDER_DRAIN_MS     background drain period (default 100 ms, 0 = off)
 bool configureFromEnv();
 
 // Run metadata for cross-process alignment: the trace anchor (earliest recorded
@@ -84,4 +84,4 @@ RunAnchor runAnchor();
 bool dumpAll(const std::string& dir, const std::string& suffix, const std::string& role,
              const std::string& node);
 
-} // namespace rune_fr
+} // namespace flight_recorder

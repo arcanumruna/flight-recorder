@@ -1,0 +1,10 @@
+@PACKAGE_INIT@
+
+# flight-recorder's ring is built on aeron's header-only AtomicBuffer/RecordDescriptor.
+# Resolve aeron if the consumer provides it (Linux); harmless if absent (the
+# exported target may carry a header-only include dir on dev platforms).
+find_package(aeron QUIET)
+
+include("${CMAKE_CURRENT_LIST_DIR}/flight_recorderTargets.cmake")
+
+check_required_components(flight_recorder)

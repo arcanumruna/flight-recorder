@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace rune_fr {
+namespace flight_recorder {
 
 // Log-linear histogram (HdrHistogram-style). Keeps P=8 mantissa bits => max
 // relative error ~1/128 (~0.78%), below the spec's <1% requirement. Values are
@@ -74,4 +74,4 @@ private:
     long double sum_ = 0.0L;
 };
 
-} // namespace rune_fr
+} // namespace flight_recorder

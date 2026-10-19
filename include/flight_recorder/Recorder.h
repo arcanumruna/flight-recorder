@@ -8,10 +8,10 @@
 #include <string>
 #include <vector>
 
-#include "rune_fr/FrRecord.h"
-#include "rune_fr/detail/FrRing.h"
+#include "flight_recorder/FrRecord.h"
+#include "flight_recorder/detail/FrRing.h"
 
-namespace rune_fr {
+namespace flight_recorder {
 
 // 16 MiB payload per thread (power of two, per spec/user default). Configurable.
 inline constexpr size_t kDefaultRingCapacity = 16u * 1024u * 1024u;
@@ -109,10 +109,10 @@ inline void pushRecord(const FrRecord& r) noexcept {
 // Total records dropped (ring full) over every registered thread.
 uint64_t droppedRecords();
 
-// Background drainer (cold, rune-fr-owned thread): pulls every thread ring into
+// Background drainer (cold, flight-recorder-owned thread): pulls every thread ring into
 // its tape every `periodMs` so a long run never fills a ring (drop-on-full).
 // Idempotent; stopped automatically at exit.  stop joins the thread.
 void startBackgroundDrain(unsigned periodMs);
 void stopBackgroundDrain();
 
-} // namespace rune_fr
+} // namespace flight_recorder

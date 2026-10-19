@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
-#include "rune_fr/Enable.h"
+#include "flight_recorder/Enable.h"
 
-using namespace rune_fr;
+using namespace flight_recorder;
 
 TEST(Enable, DisabledSuppressesAllSites) {
     disable();

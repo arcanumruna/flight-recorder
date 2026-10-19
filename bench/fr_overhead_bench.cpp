@@ -1,7 +1,7 @@
 #include <benchmark/benchmark.h>
-#include "rune_fr/FlightRecorder.h"
+#include "flight_recorder/FlightRecorder.h"
 
-using namespace rune_fr;
+using namespace flight_recorder;
 
 // Enabled SPAN: begin+commit of a real measured event.
 static void BM_SpanEnabled(benchmark::State& state) {
@@ -37,7 +37,7 @@ static void BM_MarkEnabled(benchmark::State& state) {
     enable();
     setCategoryMask(0xFFFFFFFFu);
     for (auto _ : state) {
-        RUNE_FR_MARK(Site::IngressRecv, 1);
+        FLIGHT_RECORDER_MARK(Site::IngressRecv, 1);
     }
     disable();
 }

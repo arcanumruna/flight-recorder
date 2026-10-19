@@ -1,5 +1,5 @@
-#include "rune_fr/Recorder.h"
-#include "rune_fr/Calibration.h"
+#include "flight_recorder/Recorder.h"
+#include "flight_recorder/Calibration.h"
 
 #include <atomic>
 #include <chrono>
@@ -14,7 +14,7 @@
 #include <pthread.h>
 #endif
 
-namespace rune_fr {
+namespace flight_recorder {
 namespace {
 uint64_t currentOsTid() noexcept {
 #if defined(__linux__)
@@ -50,10 +50,10 @@ ThreadRecorder* Recorder::registerThread() {
 // recorder, not an archive).  Unbounded, a busy-spin thread's per-pass spans
 // (millions/s) grew the tape ~60 MB/s until the process was OOM-killed.
 // Histograms are accumulated at record time and stay complete regardless.
-// RUNE_FR_TAPE_RECORDS_PER_THREAD (default 2M records = 48 MiB per thread).
+// FLIGHT_RECORDER_TAPE_RECORDS_PER_THREAD (default 2M records = 48 MiB per thread).
 static std::size_t tapeCapRecords() {
     static const std::size_t cap = [] {
-        if (const char* e = std::getenv("RUNE_FR_TAPE_RECORDS_PER_THREAD")) {
+        if (const char* e = std::getenv("FLIGHT_RECORDER_TAPE_RECORDS_PER_THREAD")) {
             const unsigned long long v = std::strtoull(e, nullptr, 10);
             if (v > 0) return static_cast<std::size_t>(v);
         }
@@ -105,7 +105,7 @@ uint64_t droppedRecords() {
     return n;
 }
 
-// ---- background drainer (cold; owned by rune-fr) ----
+// ---- background drainer (cold; owned by flight-recorder) ----
 namespace {
 struct BackgroundDrain {
     std::thread       thread;
@@ -152,82 +152,82 @@ ThreadRecorder* threadRecorder() noexcept {
     return cached;
 }
 
-} // namespace rune_fr
+} // namespace flight_recorder
 
 
 // ---- C API (for the Aeron C driver hooks) — defined HERE, in an object that is
 // always linked, so the weak references from Aeron always resolve and no
 // consumer's build has to list an extra source file. ----
-#include "rune_fr/capi.h"
-#include "rune_fr/Event.h"
+#include "flight_recorder/capi.h"
+#include "flight_recorder/Event.h"
 
-#if RUNE_FR
+#if FLIGHT_RECORDER
 namespace {
-constexpr rune_fr::Site kMap[RUNE_FR_C_SITE_COUNT] = {
-    rune_fr::Site::AeronConductorDuty,
-    rune_fr::Site::AeronSenderDuty,
-    rune_fr::Site::AeronReceiverDuty,
-    rune_fr::Site::AeronSendData,
-    rune_fr::Site::AeronRecvInsert,
-    rune_fr::Site::AeronSmSent,
-    rune_fr::Site::AeronSmRecv,
-    rune_fr::Site::AeronSendSyscall,
-    rune_fr::Site::AeronRecvSyscall,
-    rune_fr::Site::AeronSenderDoSend,
-    rune_fr::Site::AeronSenderControlPoll,
-    rune_fr::Site::AeronPubSend,
-    rune_fr::Site::AeronSendBlocked,
-    rune_fr::Site::AeronHeartbeatSent,
-    rune_fr::Site::AeronSetupSent,
-    rune_fr::Site::AeronRetransmit,
-    rune_fr::Site::AeronNakRecv,
-    rune_fr::Site::AeronNakSent,
-    rune_fr::Site::AeronLossGap,
-    rune_fr::Site::AeronReceiverPoll,
-    rune_fr::Site::AeronImageClean,
-    rune_fr::Site::AeronPubClean,
-    rune_fr::Site::AeronConductorCmd,
-    rune_fr::Site::AeronRecvDispatch};
+constexpr flight_recorder::Site kMap[FLIGHT_RECORDER_C_SITE_COUNT] = {
+    flight_recorder::Site::AeronConductorDuty,
+    flight_recorder::Site::AeronSenderDuty,
+    flight_recorder::Site::AeronReceiverDuty,
+    flight_recorder::Site::AeronSendData,
+    flight_recorder::Site::AeronRecvInsert,
+    flight_recorder::Site::AeronSmSent,
+    flight_recorder::Site::AeronSmRecv,
+    flight_recorder::Site::AeronSendSyscall,
+    flight_recorder::Site::AeronRecvSyscall,
+    flight_recorder::Site::AeronSenderDoSend,
+    flight_recorder::Site::AeronSenderControlPoll,
+    flight_recorder::Site::AeronPubSend,
+    flight_recorder::Site::AeronSendBlocked,
+    flight_recorder::Site::AeronHeartbeatSent,
+    flight_recorder::Site::AeronSetupSent,
+    flight_recorder::Site::AeronRetransmit,
+    flight_recorder::Site::AeronNakRecv,
+    flight_recorder::Site::AeronNakSent,
+    flight_recorder::Site::AeronLossGap,
+    flight_recorder::Site::AeronReceiverPoll,
+    flight_recorder::Site::AeronImageClean,
+    flight_recorder::Site::AeronPubClean,
+    flight_recorder::Site::AeronConductorCmd,
+    flight_recorder::Site::AeronRecvDispatch};
 // Per-C-site runtime mask (bit i = C site i).  The per-duty-cycle Aeron spans
 // (duty, recv syscall, do-send, control poll, pub send, receiver poll, image/pub
 // clean) fire on EVERY idle cycle and overflowed the per-thread rings (36% of
 // records dropped), hiding the hop events.  Default keeps the hop-explaining
-// sites; RUNE_FR_AERON_MASK=<hex> overrides (0xFFFFFF = everything).
+// sites; FLIGHT_RECORDER_AERON_MASK=<hex> overrides (0xFFFFFF = everything).
 constexpr uint32_t kDefaultAeronMask =
     (1u << 3) | (1u << 4) | (1u << 5) | (1u << 6) | (1u << 7) | (1u << 12) | (1u << 13) |
     (1u << 14) | (1u << 15) | (1u << 16) | (1u << 17) | (1u << 18) | (1u << 22) | (1u << 23);
 inline uint32_t aeronMask() noexcept {
     static const uint32_t m = [] {
-        if (const char* e = std::getenv("RUNE_FR_AERON_MASK")) return static_cast<uint32_t>(std::strtoul(e, nullptr, 0));
+        if (const char* e = std::getenv("FLIGHT_RECORDER_AERON_MASK")) return static_cast<uint32_t>(std::strtoul(e, nullptr, 0));
         return kDefaultAeronMask;
     }();
     return m;
 }
-inline bool mapSite(uint16_t c, rune_fr::Site& out) noexcept {
-    if (c >= RUNE_FR_C_SITE_COUNT || ((aeronMask() >> c) & 1u) == 0) return false;
+inline bool mapSite(uint16_t c, flight_recorder::Site& out) noexcept {
+    if (c >= FLIGHT_RECORDER_C_SITE_COUNT || ((aeronMask() >> c) & 1u) == 0) return false;
     out = kMap[c];
-    return rune_fr::enabled(out);
+    return flight_recorder::enabled(out);
 }
 } // namespace
 
 // A8: 0 while the recorder is disabled — no rdtscp per Aeron duty-cycle hook (a span
-// started at 0 records nothing, see rune_fr_c_span).
-extern "C" uint64_t rune_fr_c_now(void) { return rune_fr::isEnabled() ? rune_fr::rdtscp() : 0; }
+// started at 0 records nothing, see flight_recorder_c_span).
+extern "C" uint64_t flight_recorder_c_now(void) { return flight_recorder::isEnabled() ? flight_recorder::rdtscp() : 0; }
 
-extern "C" void rune_fr_c_span(uint16_t c, uint32_t corr, uint64_t start, double value) {
-    rune_fr::Site s;
+extern "C" void flight_recorder_c_span(uint16_t c, uint32_t corr, uint64_t start, double value) {
+    flight_recorder::Site s;
     if (start == 0 || !mapSite(c, s)) return;   // FR-L: the free check first (a disabled-time start)
-    rune_fr::pushRecord(rune_fr::FrRecord{start, rune_fr::rdtscp(), corr, static_cast<uint16_t>(s), 0, value});
+    flight_recorder::pushRecord(flight_recorder::FrRecord{start, flight_recorder::rdtscp(), corr, static_cast<uint16_t>(s), 0, value});
 }
 
-extern "C" void rune_fr_c_mark(uint16_t c, uint32_t corr, double value) {
-    rune_fr::Site s;
+extern "C" void flight_recorder_c_mark(uint16_t c, uint32_t corr, double value) {
+    flight_recorder::Site s;
     if (!mapSite(c, s)) return;
-    const uint64_t t = rune_fr::rdtscp();
-    rune_fr::pushRecord(rune_fr::FrRecord{t, t, corr, static_cast<uint16_t>(s), 0, value});
+    const uint64_t t = flight_recorder::rdtscp();
+    flight_recorder::pushRecord(flight_recorder::FrRecord{t, t, corr, static_cast<uint16_t>(s), 0, value});
 }
 #else
-extern "C" uint64_t rune_fr_c_now(void) { return 0; }
-extern "C" void rune_fr_c_span(uint16_t, uint32_t, uint64_t, double) {}
-extern "C" void rune_fr_c_mark(uint16_t, uint32_t, double) {}
+extern "C" uint64_t flight_recorder_c_now(void) { return 0; }
+extern "C" void flight_recorder_c_span(uint16_t, uint32_t, uint64_t, double) {}
+extern "C" void flight_recorder_c_mark(uint16_t, uint32_t, double) {}
 #endif

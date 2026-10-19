@@ -3,9 +3,9 @@
 #include <atomic>
 #include <cstdint>
 
-#include "rune_fr/Sites.h"
+#include "flight_recorder/Sites.h"
 
-namespace rune_fr {
+namespace flight_recorder {
 
 // Definitions live in Enable.cpp so the atomics have one home.
 extern std::atomic<bool> g_enabled;
@@ -44,4 +44,4 @@ inline bool enabled(Site s) noexcept {
             categoryBit(categoryOf(s))) != 0;
 }
 
-} // namespace rune_fr
+} // namespace flight_recorder

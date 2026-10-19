@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 #include <sstream>
-#include "rune_fr/FlightRecorder.h"
+#include "flight_recorder/FlightRecorder.h"
 
-using namespace rune_fr;
+using namespace flight_recorder;
 
 namespace {
 // Push a record directly into this thread's ring, bypassing the TSC clock so

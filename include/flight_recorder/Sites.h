@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace rune_fr {
+namespace flight_recorder {
 
 enum class Category : uint8_t {
     Produce,
@@ -111,10 +111,10 @@ enum class Site : uint16_t {
     ShardPass,                // ShardAgent::doWork — one full shard pass (driver+conductor+worker[+fused runtime])
 
     // --- shard replication waterfall (Category::Replication) ---
-    // Keys (rune_fr/Keys.h): K = partKey(topic, partition, offset) =
+    // Keys (flight_recorder/Keys.h): K = partKey(topic, partition, offset) =
     //   ((topic+8)&0xF)<<28 | (partition&0xF)<<24 | offset&0xFFFFFF;
     //   C = foldCorr(correlationId) (the client batch id, attempt-free).
-    // "(throttled)" sites go through rune_fr::Throttle: value = events coalesced.
+    // "(throttled)" sites go through flight_recorder::Throttle: value = events coalesced.
     ShAppendBase,          // leader: batch appended, corr=K(baseOffset), val=lastOffset
     ShPushAttempt,         // leader: push to one follower attempted, corr=K(endOffset-1), val=follower
     ShPushSent,            // leader: push accepted by transport, corr=K(endOffset-1), val=follower
@@ -401,4 +401,4 @@ inline const char* nameOf(Site s) noexcept {
     return kSiteMeta[static_cast<uint16_t>(s)].name;
 }
 
-} // namespace rune_fr
+} // namespace flight_recorder

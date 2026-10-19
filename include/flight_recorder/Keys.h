@@ -6,7 +6,7 @@
 
 #include <cstdint>
 
-namespace rune_fr {
+namespace flight_recorder {
 
 // The client batch correlation id folded to 32 bits, attempt-free.  The Rune
 // client's batch id is tag | ordinal<<50 | slot<<32 | attempt<<24 | seq(24);
@@ -29,4 +29,4 @@ constexpr uint32_t partKey(int32_t topic, int32_t partition, int64_t offset) noe
            (static_cast<uint32_t>(static_cast<uint64_t>(offset)) & 0xFFFFFFu);
 }
 
-} // namespace rune_fr
+} // namespace flight_recorder

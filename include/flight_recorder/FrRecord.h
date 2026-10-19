@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <bit>
 
-namespace rune_fr {
+namespace flight_recorder {
 
 // v1 record: 24 bytes, 8-byte aligned. Absolute start+end stamps (not just
 // duration) so the exporter can place spans on a shared timeline. The 16-byte
@@ -27,6 +27,6 @@ struct FrRecord {
 static_assert(sizeof(FrRecord) == 32, "FrRecord must be 32 bytes");
 static_assert(alignof(FrRecord) == 8, "FrRecord must be 8-byte aligned");
 static_assert(std::endian::native == std::endian::little,
-              "rune-fr assumes a little-endian target (matches Rune)");
+              "flight-recorder assumes a little-endian target (matches Rune)");
 
-} // namespace rune_fr
+} // namespace flight_recorder

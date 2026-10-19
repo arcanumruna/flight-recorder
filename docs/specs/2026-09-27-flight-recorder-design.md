@@ -1,4 +1,4 @@
-# rune-fr — Ultra-Low-Overhead C++ Flight Recorder — Design Spec
+# flight-recorder — Ultra-Low-Overhead C++ Flight Recorder — Design Spec
 
 **Status:** Approved for implementation (write-plan + build in a separate session).
 **Date:** 2026-09-27
@@ -9,9 +9,9 @@
 
 ## 0. One-paragraph summary
 
-`rune-fr` is a standalone C++23 header-first library that provides **JFR-style, always-on-capable, sub-10ns-per-event flight recording** for Rune's hot paths. An event is *measured*: it captures a **start stamp** on `begin()` and, on `commit()`, captures the **end stamp** and appends the completed record to a **per-thread, lock-free, zero-allocation ring buffer**. Timestamps come from the **TSC** (`rdtscp`). A separate (off-hot-path) drainer turns the raw per-thread tapes into **per-site latency histograms** and a **Chrome-trace/speedscope timeline**, so we can always answer "what took long?" without ad-hoc A/B benchmarking. It mirrors the philosophy of the TS `cassette` recorder (bounded, zero-garbage, eject-to-report) but is a native implementation built on Rune's shared-nothing / lock-free idioms.
+`flight-recorder` is a standalone C++23 header-first library that provides **JFR-style, always-on-capable, sub-10ns-per-event flight recording** for Rune's hot paths. An event is *measured*: it captures a **start stamp** on `begin()` and, on `commit()`, captures the **end stamp** and appends the completed record to a **per-thread, lock-free, zero-allocation ring buffer**. Timestamps come from the **TSC** (`rdtscp`). A separate (off-hot-path) drainer turns the raw per-thread tapes into **per-site latency histograms** and a **Chrome-trace/speedscope timeline**, so we can always answer "what took long?" without ad-hoc A/B benchmarking. It mirrors the philosophy of the TS `cassette` recorder (bounded, zero-garbage, eject-to-report) but is a native implementation built on Rune's shared-nothing / lock-free idioms.
 
-**Primary motivating problem:** Rune's 3-node produce path exhibits a fixed ~16 ms per-round-trip latency that is invisible to app-idle and driver-idle tuning. rune-fr must let us instrument the produce→ack path (`IngressRecv → GatewayHandle → WorkerEnqueue → WorkerAppend → StorageWrite → EgressClaim → EgressSend → ClientAckRecv`) and see, in one run, which hop owns the 16 ms.
+**Primary motivating problem:** Rune's 3-node produce path exhibits a fixed ~16 ms per-round-trip latency that is invisible to app-idle and driver-idle tuning. flight-recorder must let us instrument the produce→ack path (`IngressRecv → GatewayHandle → WorkerEnqueue → WorkerAppend → StorageWrite → EgressClaim → EgressSend → ClientAckRecv`) and see, in one run, which hop owns the 16 ms.
 
 ---
 
@@ -41,7 +41,7 @@
 Every measurement point is a statically-declared **site** with a stable numeric id and metadata (name, category). The hot path carries only the `siteId` (a `uint16`); names are resolved at report time.
 
 ```cpp
-// rune_fr/Sites.h  (generated or hand-maintained; ONE source of truth)
+// flight_recorder/Sites.h  (generated or hand-maintained; ONE source of truth)
 enum class Site : uint16_t {
     None = 0,
     // --- produce path (category = Produce) ---
@@ -75,7 +75,7 @@ struct FrRecord {          // 24 bytes, 8-byte aligned
 
 ### 2.3 Measured events (JFR begin/commit) — the central API
 ```cpp
-namespace rune_fr {
+namespace flight_recorder {
 
 class Event {
 public:
@@ -90,12 +90,12 @@ public:
                                       // to this thread's ring. No-op if !enabled(site).
 };
 
-} // namespace rune_fr
+} // namespace flight_recorder
 ```
 
 Usage (JFR-style, exactly as requested):
 ```cpp
-rune_fr::Event ev(Site::WorkerAppend);
+flight_recorder::Event ev(Site::WorkerAppend);
 ev.begin().corr(correlationId);
 // ... work being measured ...
 ev.commit();   // end stamp taken here; record added to the buffer on commit
@@ -105,13 +105,13 @@ Two conveniences built on top:
 
 ```cpp
 // RAII scoped span: begin() in ctor, commit() in dtor.
-#define RUNE_FR_SPAN(site, corr) rune_fr::ScopedSpan _fr_##__LINE__{ (site), (corr) }
+#define FLIGHT_RECORDER_SPAN(site, corr) flight_recorder::ScopedSpan _fr_##__LINE__{ (site), (corr) }
 
 // Instant/point event (start == end): records a single timestamped mark.
-#define RUNE_FR_MARK(site, corr)  rune_fr::mark((site), (corr))
+#define FLIGHT_RECORDER_MARK(site, corr)  flight_recorder::mark((site), (corr))
 ```
 
-When `RUNE_FR` is compiled out, `Event`, `RUNE_FR_SPAN`, and `RUNE_FR_MARK` all expand to nothing (empty inline / no-op struct). When compiled in but disabled at runtime, `begin()`/`commit()` short-circuit on a single relaxed-load branch.
+When `FLIGHT_RECORDER` is compiled out, `Event`, `FLIGHT_RECORDER_SPAN`, and `FLIGHT_RECORDER_MARK` all expand to nothing (empty inline / no-op struct). When compiled in but disabled at runtime, `begin()`/`commit()` short-circuit on a single relaxed-load branch.
 
 ### 2.4 Timestamp source
 - Primary: **`rdtscp`** (serializing enough for ordering within a thread; pair reads to fence if needed). Detect **invariant TSC** (`CPUID` leaf `0x80000007` EDX bit 8) at startup.
@@ -128,7 +128,7 @@ When `RUNE_FR` is compiled out, `Event`, `RUNE_FR_SPAN`, and `RUNE_FR_MARK` all 
 - Reuse or adapt `common`'s `O2ORingBuffer` semantics if convenient, but a purpose-built POD ring is simpler here (fixed record size, single producer = the owning thread, single consumer = the drainer reading a snapshot of the write index). The drainer reads lock-free via an acquire-load of the published write index.
 
 ### 2.6 Enable / disable / masking
-- `RUNE_FR` (CMake option / compile define): master compile switch. Off → all macros/`Event` are no-ops with zero code emitted.
+- `FLIGHT_RECORDER` (CMake option / compile define): master compile switch. Off → all macros/`Event` are no-ops with zero code emitted.
 - Global `std::atomic<bool> g_enabled` (relaxed loads on hot path) for runtime on/off.
 - `std::atomic<uint32_t> g_categoryMask` — enable/disable per `Category` so we can record just the produce path.
 - `enabled(site)` = `g_enabled && (g_categoryMask & bit(categoryOf(site)))` — a couple of relaxed loads + a branch, predicted not-taken when off.
@@ -160,9 +160,9 @@ Drainer runs on demand (signal handler, keypress, RPC, or benchmark teardown). I
 
 ## 5. Build & packaging
 
-- **Repo:** `/Users/vradu/Projects/rune-fr` (new). `git init`; origin under `bitbucket.org:jcodeteam/rune-fr.git` (match sibling naming; user creates the remote).
+- **Repo:** `/Users/vradu/Projects/flight-recorder` (new). `git init`; origin under `bitbucket.org:jcodeteam/flight-recorder.git` (match sibling naming; user creates the remote).
 - **Language/std:** C++23, little-endian assumption documented (matches Rune). Header-first with a small `.cpp` for the recorder/registry/calibration.
-- **CMake:** target `rune_fr` (INTERFACE or STATIC). Option `RUNE_FR` (default ON). Must **configure on both macOS (CLion) and Linux** — no hard x86 requirement at configure time; the ARM/TSC-fallback path keeps macOS builds green (mirror the aeron-recipe portability lesson: never break `cmake` configure on macOS/armv8).
+- **CMake:** target `flight_recorder` (INTERFACE or STATIC). Option `FLIGHT_RECORDER` (default ON). Must **configure on both macOS (CLion) and Linux** — no hard x86 requirement at configure time; the ARM/TSC-fallback path keeps macOS builds green (mirror the aeron-recipe portability lesson: never break `cmake` configure on macOS/armv8).
 - **Conan:** provide a `conanfile.py` so `rune-broker` / `rune-client-cpp` consume it as a normal dependency. The implementing agent writes the recipe but does **not** run `conan create/export/upload` — the user's CI builds/publishes.
 - **Dependencies:** standard library only for core. Google Benchmark + a test framework (GoogleTest, matching the other repos) for tests/benches. HdrHistogram: either vendor a tiny header-only percentile accumulator or implement a simple log-bucketed histogram to avoid a heavy dep.
 
@@ -170,14 +170,14 @@ Drainer runs on demand (signal handler, keypress, RPC, or benchmark teardown). I
 
 ## 6. Integration surface (how Rune will call it — v1 wiring is a follow-up)
 
-The recorder is generic; Rune adds `#include <rune_fr/FlightRecorder.h>` and drops spans at sites. Example (broker worker append):
+The recorder is generic; Rune adds `#include <flight_recorder/FlightRecorder.h>` and drops spans at sites. Example (broker worker append):
 ```cpp
 void Worker::applyProduce(const ProduceOp& op) {
-    RUNE_FR_SPAN(rune_fr::Site::WorkerAppend, op.correlationId);
+    FLIGHT_RECORDER_SPAN(flight_recorder::Site::WorkerAppend, op.correlationId);
     ...
 }
 ```
-Instrumentation of the actual Rune sites is **out of scope for the rune-fr build session** — the rune-fr session delivers the library + tests + benches. A later session (back in the broker worktree) will place the measures and hunt the 16 ms.
+Instrumentation of the actual Rune sites is **out of scope for the flight-recorder build session** — the flight-recorder session delivers the library + tests + benches. A later session (back in the broker worktree) will place the measures and hunt the 16 ms.
 
 ---
 
@@ -185,10 +185,10 @@ Instrumentation of the actual Rune sites is **out of scope for the rune-fr build
 
 Use `superpowers:writing-plans` to turn these into bite-sized TDD tasks.
 
-- **P0 — Repo scaffold.** `git init`, CMake skeleton, C++23, `RUNE_FR` option, GoogleTest + Google Benchmark wired, CI-less local build green on macOS + Linux.
+- **P0 — Repo scaffold.** `git init`, CMake skeleton, C++23, `FLIGHT_RECORDER` option, GoogleTest + Google Benchmark wired, CI-less local build green on macOS + Linux.
 - **P1 — TSC + calibration.** `rdtscp` wrapper, invariant-TSC detection, `CLOCK_MONOTONIC_RAW` calibration → `tscPerNs`, cycles↔ns helpers, fallback path. Tests: calibration sanity (duration of a known sleep within tolerance), monotonicity.
 - **P2 — Per-thread ring + record.** `FrRecord` POD, per-thread ring (both modes), thread registration/registry, lock-free published write index. Tests: single-thread fill/overwrite/stop-when-full; multi-thread isolation.
-- **P3 — Event API (begin/commit) + macros.** `Event`, `ScopedSpan`, `mark()`, `RUNE_FR` compile-out, runtime enable + category mask. Tests: begin/commit produces one record with correct site/corr and `end>=start`; disabled = no record; compiled-out = no symbols.
+- **P3 — Event API (begin/commit) + macros.** `Event`, `ScopedSpan`, `mark()`, `FLIGHT_RECORDER` compile-out, runtime enable + category mask. Tests: begin/commit produces one record with correct site/corr and `end>=start`; disabled = no record; compiled-out = no symbols.
 - **P4 — Reporting.** `dumpHistograms`, `stitchByCorr`, `exportChromeTrace`, `writeTape/readTape`. Tests: histogram percentiles on synthetic data; Chrome-trace JSON schema golden; corr stitch ordering; tape round-trip.
 - **P5 — Overhead microbench + throughput test.** Meet the < 10 ns target; publish numbers in the repo README. Gate.
 - **P6 — Conan recipe + consumption smoke.** Recipe written; a tiny sample `find_package`/`target_link_libraries` consumer builds. (No publish by the agent.)
@@ -197,9 +197,9 @@ Each milestone ends with an independently testable, committed deliverable.
 
 ---
 
-## 8. Acceptance criteria (definition of done for the rune-fr session)
-1. `rune_fr` builds on macOS (CLion) and Linux with `RUNE_FR=ON` and `RUNE_FR=OFF`.
-2. JFR-style `begin()/commit()` records a correct measured event; RAII `RUNE_FR_SPAN` and `RUNE_FR_MARK` work.
+## 8. Acceptance criteria (definition of done for the flight-recorder session)
+1. `flight_recorder` builds on macOS (CLion) and Linux with `FLIGHT_RECORDER=ON` and `FLIGHT_RECORDER=OFF`.
+2. JFR-style `begin()/commit()` records a correct measured event; RAII `FLIGHT_RECORDER_SPAN` and `FLIGHT_RECORDER_MARK` work.
 3. Per-thread lock-free rings, zero allocation on the write path (verified by an allocation-counting test or inspection).
 4. Enabled-event overhead ≤ 10 ns on the reference VM, with published microbench numbers; compiled-out emits no code.
 5. Histogram + Chrome-trace + corr-stitch + tape round-trip all covered by tests.

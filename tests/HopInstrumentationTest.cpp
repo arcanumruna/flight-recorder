@@ -12,10 +12,10 @@
 #include <thread>
 #include <unistd.h>
 
-#include "rune_fr/FlightRecorder.h"
-#include "rune_fr/capi.h"
+#include "flight_recorder/FlightRecorder.h"
+#include "flight_recorder/capi.h"
 
-using namespace rune_fr;
+using namespace flight_recorder;
 
 namespace {
 std::vector<FrRecord> drainedRecords() {
@@ -175,23 +175,23 @@ TEST(HopPrimitives, DumpAllWritesTapeTraceHistAndMetaWithAnchor) {
 
 TEST(HopPrimitives, ConfigureFromEnvIsOffUnlessEnabledAndAppliesThresholds) {
     disable();
-    ::unsetenv("RUNE_FR_ENABLE");
+    ::unsetenv("FLIGHT_RECORDER_ENABLE");
     EXPECT_FALSE(configureFromEnv());
     EXPECT_FALSE(isEnabled());
-    ::setenv("RUNE_FR_ENABLE", "0", 1);
+    ::setenv("FLIGHT_RECORDER_ENABLE", "0", 1);
     EXPECT_FALSE(configureFromEnv());
-    ::setenv("RUNE_FR_ENABLE", "1", 1);
-    ::setenv("RUNE_FR_SLOW_SPAN_NS", "1000000", 1);
-    ::setenv("RUNE_FR_THROTTLE_NS", "2000000", 1);
-    ::setenv("RUNE_FR_CATEGORIES", "storage,produce", 1);
-    ::setenv("RUNE_FR_DRAIN_MS", "0", 1);
+    ::setenv("FLIGHT_RECORDER_ENABLE", "1", 1);
+    ::setenv("FLIGHT_RECORDER_SLOW_SPAN_NS", "1000000", 1);
+    ::setenv("FLIGHT_RECORDER_THROTTLE_NS", "2000000", 1);
+    ::setenv("FLIGHT_RECORDER_CATEGORIES", "storage,produce", 1);
+    ::setenv("FLIGHT_RECORDER_DRAIN_MS", "0", 1);
     EXPECT_TRUE(configureFromEnv());
     EXPECT_TRUE(isEnabled());
     EXPECT_NEAR(cyclesToNs(slowSpanTsc()), 1'000'000.0, 1000.0);
     EXPECT_NEAR(cyclesToNs(throttleTsc()), 2'000'000.0, 2000.0);
     EXPECT_EQ(categoryMask(), categoryBit(Category::Storage) | categoryBit(Category::Produce));
-    for (const char* v : {"RUNE_FR_ENABLE", "RUNE_FR_SLOW_SPAN_NS", "RUNE_FR_THROTTLE_NS", "RUNE_FR_CATEGORIES",
-                          "RUNE_FR_DRAIN_MS"})
+    for (const char* v : {"FLIGHT_RECORDER_ENABLE", "FLIGHT_RECORDER_SLOW_SPAN_NS", "FLIGHT_RECORDER_THROTTLE_NS", "FLIGHT_RECORDER_CATEGORIES",
+                          "FLIGHT_RECORDER_DRAIN_MS"})
         ::unsetenv(v);
     disable();
     setCategoryMask(0xFFFFFFFFu);
@@ -201,13 +201,13 @@ TEST(HopPrimitives, ConfigureFromEnvIsOffUnlessEnabledAndAppliesThresholds) {
 
 TEST(HopPrimitives, CApiRecordsAeronSitesThroughTheSameRing) {
     armAll();
-    const uint64_t t0 = rune_fr_c_now();
-    rune_fr_c_span(RUNE_FR_C_AERON_SEND_SYSCALL, 1, t0, 2.0);
-    rune_fr_c_mark(RUNE_FR_C_AERON_NAK_RECV, 3, 4.0);
-    rune_fr_c_mark(RUNE_FR_C_SITE_COUNT, 3, 4.0);   // out of range: ignored
+    const uint64_t t0 = flight_recorder_c_now();
+    flight_recorder_c_span(FLIGHT_RECORDER_C_AERON_SEND_SYSCALL, 1, t0, 2.0);
+    flight_recorder_c_mark(FLIGHT_RECORDER_C_AERON_NAK_RECV, 3, 4.0);
+    flight_recorder_c_mark(FLIGHT_RECORDER_C_SITE_COUNT, 3, 4.0);   // out of range: ignored
     // Per-duty-cycle sites are outside the default Aeron mask (they flood the ring every idle cycle).
-    rune_fr_c_span(RUNE_FR_C_AERON_SENDER_DUTY, 1, t0, 2.0);
-    rune_fr_c_span(RUNE_FR_C_AERON_RECV_SYSCALL, 1, t0, 2.0);
+    flight_recorder_c_span(FLIGHT_RECORDER_C_AERON_SENDER_DUTY, 1, t0, 2.0);
+    flight_recorder_c_span(FLIGHT_RECORDER_C_AERON_RECV_SYSCALL, 1, t0, 2.0);
     auto r = drainedRecords();
     ASSERT_EQ(r.size(), 2u);
     EXPECT_EQ(r[0].site, static_cast<uint16_t>(Site::AeronSendSyscall));
@@ -215,16 +215,16 @@ TEST(HopPrimitives, CApiRecordsAeronSitesThroughTheSameRing) {
     disable();
 }
 
-// A8 (perf regression): the Aeron C hooks call rune_fr_c_now() at every duty-cycle
+// A8 (perf regression): the Aeron C hooks call flight_recorder_c_now() at every duty-cycle
 // span start.  While the recorder is disabled it must not read the TSC (rdtscp cost
 // ~3% of a shard worker and ~6% of the bench client at 20k rec/s, k3s-node-01): it
 // returns 0, and a span started at 0 records nothing.
 TEST(HopPrimitivesRegression, CApiNowIsZeroWhileDisabledRegression) {
     armAll();
-    EXPECT_NE(rune_fr_c_now(), 0u);   // armed: a real timestamp
+    EXPECT_NE(flight_recorder_c_now(), 0u);   // armed: a real timestamp
     disable();
-    EXPECT_EQ(rune_fr_c_now(), 0u);
-    rune_fr_c_span(RUNE_FR_C_AERON_SEND_SYSCALL, 1, rune_fr_c_now(), 2.0);
+    EXPECT_EQ(flight_recorder_c_now(), 0u);
+    flight_recorder_c_span(FLIGHT_RECORDER_C_AERON_SEND_SYSCALL, 1, flight_recorder_c_now(), 2.0);
     EXPECT_EQ(drainedRecords().size(), 0u);
 }
 
@@ -233,11 +233,11 @@ TEST(HopPrimitivesRegression, CApiNowIsZeroWhileDisabledRegression) {
 TEST(HopPrimitivesRegression, CApiSpanStartedWhileDisabledRecordsNothingRegression) {
     armAll();
     disable();
-    const uint64_t t0 = rune_fr_c_now();
+    const uint64_t t0 = flight_recorder_c_now();
     EXPECT_EQ(t0, 0u);
     armAll();                                    // enabled between start and end
-    rune_fr_c_span(RUNE_FR_C_AERON_SEND_SYSCALL, 1, t0, 2.0);
+    flight_recorder_c_span(FLIGHT_RECORDER_C_AERON_SEND_SYSCALL, 1, t0, 2.0);
     EXPECT_EQ(drainedRecords().size(), 0u) << "a disabled-time span was recorded";
-    rune_fr_c_span(RUNE_FR_C_AERON_SEND_SYSCALL, 1, rune_fr_c_now(), 2.0);   // control: an enabled span records
+    flight_recorder_c_span(FLIGHT_RECORDER_C_AERON_SEND_SYSCALL, 1, flight_recorder_c_now(), 2.0);   // control: an enabled span records
     EXPECT_EQ(drainedRecords().size(), 1u);
 }

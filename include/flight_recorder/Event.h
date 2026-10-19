@@ -2,17 +2,17 @@
 
 #include <cstdint>
 
-#include "rune_fr/Config.h"
-#include "rune_fr/Sites.h"
+#include "flight_recorder/Config.h"
+#include "flight_recorder/Sites.h"
 
-#if RUNE_FR
+#if FLIGHT_RECORDER
 
-#include "rune_fr/FrRecord.h"
-#include "rune_fr/Tsc.h"
-#include "rune_fr/Enable.h"
-#include "rune_fr/Recorder.h"
+#include "flight_recorder/FrRecord.h"
+#include "flight_recorder/Tsc.h"
+#include "flight_recorder/Enable.h"
+#include "flight_recorder/Recorder.h"
 
-namespace rune_fr {
+namespace flight_recorder {
 
 class Event {
 public:
@@ -115,20 +115,20 @@ private:
     Event ev_;
 };
 
-} // namespace rune_fr
+} // namespace flight_recorder
 
-#define RUNE_FR_SPAN(site, corr) \
-    ::rune_fr::ScopedSpan RUNE_FR_CONCAT(_fr_span_, __LINE__){(site), (corr)}
-#define RUNE_FR_MARK(site, corr) ::rune_fr::mark((site), (corr))
-#define RUNE_FR_MARK_VAL(site, corr, value) ::rune_fr::markVal((site), (corr), (value))
-#define RUNE_FR_MARK_ARG_VAL(site, corr, arg, value) ::rune_fr::markArgVal((site), (corr), (arg), (value))
-#define RUNE_FR_SLOW_SPAN(site, corr) \
-    ::rune_fr::SlowSpan RUNE_FR_CONCAT(_fr_slow_, __LINE__){(site), (corr)}
-#define RUNE_FR_THROTTLED(throttle, site, corr, arg) (throttle).hit((site), (corr), (arg))
+#define FLIGHT_RECORDER_SPAN(site, corr) \
+    ::flight_recorder::ScopedSpan FLIGHT_RECORDER_CONCAT(_fr_span_, __LINE__){(site), (corr)}
+#define FLIGHT_RECORDER_MARK(site, corr) ::flight_recorder::mark((site), (corr))
+#define FLIGHT_RECORDER_MARK_VAL(site, corr, value) ::flight_recorder::markVal((site), (corr), (value))
+#define FLIGHT_RECORDER_MARK_ARG_VAL(site, corr, arg, value) ::flight_recorder::markArgVal((site), (corr), (arg), (value))
+#define FLIGHT_RECORDER_SLOW_SPAN(site, corr) \
+    ::flight_recorder::SlowSpan FLIGHT_RECORDER_CONCAT(_fr_slow_, __LINE__){(site), (corr)}
+#define FLIGHT_RECORDER_THROTTLED(throttle, site, corr, arg) (throttle).hit((site), (corr), (arg))
 
-#else // !RUNE_FR — compiled out: zero code.
+#else // !FLIGHT_RECORDER — compiled out: zero code.
 
-namespace rune_fr {
+namespace flight_recorder {
 class Event {
 public:
     explicit Event(Site) noexcept {}
@@ -152,13 +152,13 @@ public:
 struct Throttle {
     void hit(Site, uint32_t, uint16_t) noexcept {}
 };
-} // namespace rune_fr
+} // namespace flight_recorder
 
-#define RUNE_FR_SPAN(site, corr) do {} while (0)
-#define RUNE_FR_MARK(site, corr) do {} while (0)
-#define RUNE_FR_MARK_VAL(site, corr, value) do {} while (0)
-#define RUNE_FR_MARK_ARG_VAL(site, corr, arg, value) do {} while (0)
-#define RUNE_FR_SLOW_SPAN(site, corr) do {} while (0)
-#define RUNE_FR_THROTTLED(throttle, site, corr, arg) do {} while (0)
+#define FLIGHT_RECORDER_SPAN(site, corr) do {} while (0)
+#define FLIGHT_RECORDER_MARK(site, corr) do {} while (0)
+#define FLIGHT_RECORDER_MARK_VAL(site, corr, value) do {} while (0)
+#define FLIGHT_RECORDER_MARK_ARG_VAL(site, corr, arg, value) do {} while (0)
+#define FLIGHT_RECORDER_SLOW_SPAN(site, corr) do {} while (0)
+#define FLIGHT_RECORDER_THROTTLED(throttle, site, corr, arg) do {} while (0)
 
-#endif // RUNE_FR
+#endif // FLIGHT_RECORDER

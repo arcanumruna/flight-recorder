@@ -1,9 +1,9 @@
 #include <gtest/gtest.h>
 #include <thread>
 #include <vector>
-#include "rune_fr/FlightRecorder.h"
+#include "flight_recorder/FlightRecorder.h"
 
-using namespace rune_fr;
+using namespace flight_recorder;
 
 TEST(Throughput, MultiThreadNoInterferenceEachRingHoldsItsOwn) {
     Recorder::instance().reset();

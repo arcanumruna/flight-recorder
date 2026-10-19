@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.31)
-project(rune_fr_sample CXX)
+project(flight_recorder_sample CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(rune_fr CONFIG REQUIRED)
+find_package(flight_recorder CONFIG REQUIRED)
 
-add_executable(rune_fr_sample main.cpp)
-target_link_libraries(rune_fr_sample PRIVATE rune_fr::rune_fr)
+add_executable(flight_recorder_sample main.cpp)
+target_link_libraries(flight_recorder_sample PRIVATE flight_recorder::flight_recorder)

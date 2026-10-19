@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <string>
-#include "rune_fr/Version.h"
+#include "flight_recorder/Version.h"
 
 TEST(Version, IsSet) {
-    EXPECT_EQ(std::string(rune_fr::kVersion), "0.1.0-snapshot");
+    EXPECT_EQ(std::string(flight_recorder::kVersion), "0.1.0-snapshot");
 }

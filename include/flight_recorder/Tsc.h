@@ -1,26 +1,26 @@
 #pragma once
 
 #include <cstdint>
-#include "rune_fr/Config.h"
+#include "flight_recorder/Config.h"
 
-#if defined(RUNE_FR_X86)
+#if defined(FLIGHT_RECORDER_X86)
 #include <x86intrin.h>
 #include <cpuid.h>
 #endif
-#if !defined(RUNE_FR_X86)
+#if !defined(FLIGHT_RECORDER_X86)
 #include <ctime>
 #endif
 
-namespace rune_fr {
+namespace flight_recorder {
 
 // Read the timestamp counter. Ordering is guaranteed within a thread, which is
 // all the write path needs (same-thread start/end). Cross-core absolute ordering
 // assumes invariant + synchronized TSC (documented; true on modern single-socket).
 inline uint64_t rdtscp() noexcept {
-#if defined(RUNE_FR_X86)
+#if defined(FLIGHT_RECORDER_X86)
     unsigned aux;
     return __builtin_ia32_rdtscp(&aux);
-#elif defined(RUNE_FR_ARM)
+#elif defined(FLIGHT_RECORDER_ARM)
     uint64_t v;
     asm volatile("mrs %0, cntvct_el0" : "=r"(v));
     return v;
@@ -35,7 +35,7 @@ inline uint64_t rdtscp() noexcept {
 // Nominal counter frequency in Hz for the non-x86 counters, when known.
 // On ARM, cntfrq_el0 gives the cntvct_el0 tick rate directly.
 inline uint64_t counterFrequencyHz() noexcept {
-#if defined(RUNE_FR_ARM)
+#if defined(FLIGHT_RECORDER_ARM)
     uint64_t f;
     asm volatile("mrs %0, cntfrq_el0" : "=r"(f));
     return f;
@@ -45,7 +45,7 @@ inline uint64_t counterFrequencyHz() noexcept {
 }
 
 inline bool hasInvariantTsc() noexcept {
-#if defined(RUNE_FR_X86)
+#if defined(FLIGHT_RECORDER_X86)
     unsigned eax, ebx, ecx, edx;
     if (!__get_cpuid(0x80000007u, &eax, &ebx, &ecx, &edx)) return false;
     return (edx & (1u << 8)) != 0; // invariant TSC bit
@@ -54,4 +54,4 @@ inline bool hasInvariantTsc() noexcept {
 #endif
 }
 
-} // namespace rune_fr
+} // namespace flight_recorder

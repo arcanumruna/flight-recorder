@@ -10,10 +10,10 @@
 #include <cstring>
 #include <vector>
 
-#include "rune_fr/FrRecord.h"
-#include "rune_fr/detail/M2ORingBuffer.h"
+#include "flight_recorder/FrRecord.h"
+#include "flight_recorder/detail/M2ORingBuffer.h"
 
-namespace rune_fr::detail {
+namespace flight_recorder::detail {
 
 class FrRing {
 public:
@@ -82,4 +82,4 @@ private:
     M2ORingBuffer ring_;
 };
 
-} // namespace rune_fr::detail
+} // namespace flight_recorder::detail

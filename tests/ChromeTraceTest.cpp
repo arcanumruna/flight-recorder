@@ -2,9 +2,9 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <cstdio>
-#include "rune_fr/FlightRecorder.h"
+#include "flight_recorder/FlightRecorder.h"
 
-using namespace rune_fr;
+using namespace flight_recorder;
 
 namespace {
 void pushSynthetic(Site s, uint32_t corr, uint64_t start, uint64_t end) {
@@ -21,12 +21,12 @@ nlohmann::json loadJson(const std::string& path) {
 
 TEST(ChromeTrace, EmptyProducesOnlyTheAnchor) {
     Recorder::instance().reset();
-    const std::string path = "/tmp/rune_fr_empty_trace.json";
+    const std::string path = "/tmp/flight_recorder_empty_trace.json";
     ASSERT_TRUE(exportChromeTrace(path));
     auto j = loadJson(path);
     EXPECT_TRUE(j.is_array());
     ASSERT_EQ(j.size(), 1u);
-    EXPECT_EQ(j[0].at("name"), "rune_fr_anchor");
+    EXPECT_EQ(j[0].at("name"), "flight_recorder_anchor");
     EXPECT_EQ(j[0].at("args").at("anchorTsc"), 0);
     std::remove(path.c_str());
 }
@@ -36,13 +36,13 @@ TEST(ChromeTrace, AnchorCarriesTheAlignmentSample) {
     calibrate();
     pushSynthetic(Site::WorkerAppend, 1, 7000, 9000);
     pushSynthetic(Site::WorkerAppend, 2, 5000, 6000);
-    const std::string path = "/tmp/rune_fr_anchor_trace.json";
+    const std::string path = "/tmp/flight_recorder_anchor_trace.json";
     ASSERT_TRUE(exportChromeTrace(path));
     auto j = loadJson(path);
     ASSERT_EQ(j.size(), 3u);
     const auto& a = j[0];
     EXPECT_EQ(a.at("ph"), "M");
-    EXPECT_EQ(a.at("name"), "rune_fr_anchor");
+    EXPECT_EQ(a.at("name"), "flight_recorder_anchor");
     EXPECT_EQ(a.at("args").at("anchorTsc"), 5000);   // earliest startTsc
     EXPECT_GT(a.at("args").at("tscPerNs").get<double>(), 0.0);
     EXPECT_GT(a.at("args").at("syncTsc").get<uint64_t>(), 0u);
@@ -56,7 +56,7 @@ TEST(ChromeTrace, EmitsCompleteEventsWithRequiredFields) {
     Recorder::instance().reset();
     calibrate();
     pushSynthetic(Site::WorkerAppend, 42, 1000, 5000);
-    const std::string path = "/tmp/rune_fr_trace.json";
+    const std::string path = "/tmp/flight_recorder_trace.json";
     ASSERT_TRUE(exportChromeTrace(path));
 
     auto j = loadJson(path);

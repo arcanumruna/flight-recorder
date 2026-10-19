@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace rune_fr {
+namespace flight_recorder {
 
 // Measure TSC ticks per nanosecond once at startup (idempotent). On the ns
 // fallback path tscPerNs stays 1.0 (rdtscp already returns ns).
@@ -18,4 +18,4 @@ inline uint64_t nsToCycles(double ns) noexcept {
     return static_cast<uint64_t>(ns * tscPerNs());
 }
 
-} // namespace rune_fr
+} // namespace flight_recorder

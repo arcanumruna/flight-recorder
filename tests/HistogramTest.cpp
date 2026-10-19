@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 #include <cmath>
-#include "rune_fr/Histogram.h"
+#include "flight_recorder/Histogram.h"
 
-using rune_fr::Histogram;
+using flight_recorder::Histogram;
 
 TEST(Histogram, EmptyIsSafe) {
     Histogram h;

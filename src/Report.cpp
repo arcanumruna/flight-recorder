@@ -1,11 +1,11 @@
-#include "rune_fr/Report.h"
-#include "rune_fr/Recorder.h"
-#include "rune_fr/Histogram.h"
-#include "rune_fr/Calibration.h"
-#include "rune_fr/FrRecord.h"
+#include "flight_recorder/Report.h"
+#include "flight_recorder/Recorder.h"
+#include "flight_recorder/Histogram.h"
+#include "flight_recorder/Calibration.h"
+#include "flight_recorder/FrRecord.h"
 
-#include "rune_fr/Enable.h"
-#include "rune_fr/Tsc.h"
+#include "flight_recorder/Enable.h"
+#include "flight_recorder/Tsc.h"
 
 #include <algorithm>
 #include <array>
@@ -19,7 +19,7 @@
 
 #include <unistd.h>
 
-namespace rune_fr {
+namespace flight_recorder {
 
 std::vector<SiteStats> collectSiteStats() {
     std::array<Histogram, static_cast<size_t>(Site::Count)> hists;
@@ -155,7 +155,7 @@ bool exportChromeTrace(const std::string& path) {
     // Anchor metadata so traces from several processes can be aligned (see
     // RunAnchor): ts_us is relative to anchorTsc; align processes on one host by
     // (anchorTsc_p - anchorTsc_ref) / tscPerNs_ref, never by absolute TSC.
-    out << "{\"ph\":\"M\",\"name\":\"rune_fr_anchor\",\"pid\":1,\"tid\":0,\"args\":{\"anchorTsc\":" << anchor
+    out << "{\"ph\":\"M\",\"name\":\"flight_recorder_anchor\",\"pid\":1,\"tid\":0,\"args\":{\"anchorTsc\":" << anchor
         << ",\"tscPerNs\":" << std::setprecision(12) << a.tscPerNs
         << ",\"syncTsc\":" << a.syncTsc << ",\"syncMonoNs\":" << a.syncMonoNs
         << ",\"syncRealNs\":" << a.syncRealNs << ",\"pid\":" << static_cast<long>(::getpid())
@@ -281,7 +281,7 @@ uint64_t envU64(const char* name, uint64_t dflt) noexcept {
     return (end != nullptr && *end == '\0') ? static_cast<uint64_t>(n) : dflt;
 }
 uint32_t categoryMaskFromEnv() noexcept {
-    const char* v = std::getenv("RUNE_FR_CATEGORIES");
+    const char* v = std::getenv("FLIGHT_RECORDER_CATEGORIES");
     if (v == nullptr || *v == '\0') return 0xFFFFFFFFu;
     static constexpr std::pair<const char*, Category> kNames[] = {
         {"produce", Category::Produce}, {"replication", Category::Replication}, {"read", Category::Read},
@@ -303,15 +303,15 @@ uint32_t categoryMaskFromEnv() noexcept {
 } // namespace
 
 bool configureFromEnv() {
-    Recorder::instance().configure(static_cast<size_t>(envU64("RUNE_FR_RING_BYTES", 128ull * 1024 * 1024)));
-    const char* en = std::getenv("RUNE_FR_ENABLE");
+    Recorder::instance().configure(static_cast<size_t>(envU64("FLIGHT_RECORDER_RING_BYTES", 128ull * 1024 * 1024)));
+    const char* en = std::getenv("FLIGHT_RECORDER_ENABLE");
     if (en == nullptr || *en == '\0' || std::strcmp(en, "0") == 0) return false;
     calibrate();
     setCategoryMask(categoryMaskFromEnv());
-    setSlowSpanTsc(nsToCycles(static_cast<double>(envU64("RUNE_FR_SLOW_SPAN_NS", 2000))));
-    setThrottleTsc(nsToCycles(static_cast<double>(envU64("RUNE_FR_THROTTLE_NS", 50000))));
+    setSlowSpanTsc(nsToCycles(static_cast<double>(envU64("FLIGHT_RECORDER_SLOW_SPAN_NS", 2000))));
+    setThrottleTsc(nsToCycles(static_cast<double>(envU64("FLIGHT_RECORDER_THROTTLE_NS", 50000))));
     enable();
-    const uint64_t drainMs = envU64("RUNE_FR_DRAIN_MS", 100);
+    const uint64_t drainMs = envU64("FLIGHT_RECORDER_DRAIN_MS", 100);
     if (drainMs > 0) startBackgroundDrain(static_cast<unsigned>(drainMs));
     return true;
 }
@@ -347,4 +347,4 @@ bool dumpAll(const std::string& dir, const std::string& suffix, const std::strin
     return ok && static_cast<bool>(m);
 }
 
-} // namespace rune_fr
+} // namespace flight_recorder
