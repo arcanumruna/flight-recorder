@@ -61,7 +61,7 @@ you rely on them: the x86_64 path uses `rdtscp`.</sub>
 |---|---|
 | **Compiler** | A C++23 compiler (`CMAKE_CXX_STANDARD 23`). CMake does not check the version; the Rune project builds it with GCC 13 and Apple clang 17. |
 | **CMake** | 3.31 or newer. |
-| **Aeron headers** | Version 1.41.4 (`conandata.yml`). The per-thread ring is a namespace-isolated copy of Aeron's many-to-one ring built on Aeron's **header-only** `AtomicBuffer` and `RecordDescriptor`; there is no link-time dependency. |
+| **Aeron headers** | Version 1.51.0 (`conandata.yml`). The per-thread ring is a namespace-isolated copy of Aeron's many-to-one ring built on Aeron's **header-only** `AtomicBuffer`, with Aeron's `RecordDescriptor` framing kept in `detail/RecordDescriptor.h`; there is no link-time dependency. |
 | **Platform** | Linux and macOS, little-endian. Timestamps: `rdtscp` on x86_64, `cntvct_el0` on arm64, `CLOCK_MONOTONIC_RAW` elsewhere. |
 | **Tests and benchmarks** | GTest 1.16.0, Google Benchmark 1.8.2, nlohmann_json 3.12.0 (`test_requirements`). |
 | **Conan** | Conan 2, optional. |

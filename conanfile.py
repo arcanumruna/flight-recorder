@@ -16,8 +16,8 @@ class FlightRecorderConan(ConanFile):
         self.version = open(version_file).read().strip()
 
     def requirements(self):
-        # flight-recorder's per-thread ring is built on aeron's header-only AtomicBuffer/
-        # RecordDescriptor. The aeron/1.41.4 ConanCenter recipe raises
+        # flight-recorder's per-thread ring is built on aeron's header-only AtomicBuffer and its
+        # RecordDescriptor framing. The aeron ConanCenter recipe raises
         # ConanInvalidConfiguration on macOS/armv8 (Apple Silicon), which would
         # break `conan install` + CMake configure for IDE loading on a Mac. Real
         # builds/tests run on Linux; on macOS skip aeron and let CMake use the

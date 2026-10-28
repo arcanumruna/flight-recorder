@@ -21,7 +21,7 @@
 #include <string>
 
 #include <concurrent/AtomicBuffer.h>
-#include <concurrent/ringbuffer/RecordDescriptor.h>
+#include "flight_recorder/detail/RecordDescriptor.h"
 #include <util/BitUtil.h>
 #include <util/Index.h>
 #include <util/Exceptions.h>
@@ -71,7 +71,7 @@ public:
     /// Reserve space for a `length`-byte message; returns the encoded-message
     /// offset to write into, or a NEGATIVE value on insufficient capacity.
     aeron::util::index_t tryClaim(std::int32_t msgTypeId, std::size_t length) {
-        namespace RD = aeron::concurrent::ringbuffer;
+        namespace RD = flight_recorder::detail;
         RD::RecordDescriptor::checkMsgTypeId(msgTypeId);
         checkMsgLength(static_cast<aeron::util::index_t>(length));
 
@@ -88,7 +88,7 @@ public:
 
     /// Publish a message previously reserved with tryClaim().
     void commit(aeron::util::index_t index) {
-        namespace RD = aeron::concurrent::ringbuffer;
+        namespace RD = flight_recorder::detail;
         const aeron::util::index_t recordIndex = computeRecordIndex(index);
         const std::int32_t recordLength = verifyClaimedSpaceNotReleased(recordIndex);
         m_buffer.putInt32Ordered(RD::RecordDescriptor::lengthOffset(recordIndex), -recordLength);
@@ -96,7 +96,7 @@ public:
 
     /// Discard a message previously reserved with tryClaim() (becomes padding).
     void abort(aeron::util::index_t index) {
-        namespace RD = aeron::concurrent::ringbuffer;
+        namespace RD = flight_recorder::detail;
         const aeron::util::index_t recordIndex = computeRecordIndex(index);
         const std::int32_t recordLength = verifyClaimedSpaceNotReleased(recordIndex);
         m_buffer.putInt32(RD::RecordDescriptor::typeOffset(recordIndex),
@@ -112,7 +112,7 @@ public:
     /// (msgTypeId, AtomicBuffer&, encodedOffset, length).  Returns messages read.
     template <typename Handler>
     int read(Handler&& handler, int messageCountLimit) {
-        namespace RD = aeron::concurrent::ringbuffer;
+        namespace RD = flight_recorder::detail;
         int messagesRead = 0;
 
         const aeron::util::index_t headPositionIndex = m_headPositionIndex;
@@ -196,7 +196,7 @@ private:
     }
 
     [[nodiscard]] aeron::util::index_t computeRecordIndex(aeron::util::index_t index) const {
-        namespace RD = aeron::concurrent::ringbuffer;
+        namespace RD = flight_recorder::detail;
         const aeron::util::index_t recordIndex = index - RD::RecordDescriptor::HEADER_LENGTH;
         if (recordIndex < 0 ||
             recordIndex > (m_capacity - RD::RecordDescriptor::HEADER_LENGTH)) {
@@ -207,7 +207,7 @@ private:
     }
 
     [[nodiscard]] std::int32_t verifyClaimedSpaceNotReleased(aeron::util::index_t recordIndex) const {
-        namespace RD = aeron::concurrent::ringbuffer;
+        namespace RD = flight_recorder::detail;
         const std::int32_t recordLength =
             m_buffer.getInt32(RD::RecordDescriptor::lengthOffset(recordIndex));
         if (recordLength < 0) return recordLength;
@@ -215,7 +215,7 @@ private:
     }
 
     aeron::util::index_t claimCapacity(aeron::util::index_t recordLength) {
-        namespace RD = aeron::concurrent::ringbuffer;
+        namespace RD = flight_recorder::detail;
         const aeron::util::index_t requiredCapacity =
             aeron::util::BitUtil::align(recordLength, RD::RecordDescriptor::ALIGNMENT);
         const aeron::util::index_t capacity = m_capacity;
